@@ -1165,11 +1165,13 @@ export class CaseSession {
   }
 
   /** The document's state in the shared vocabulary (DESIGN-SPEC §3). */
-  docState(doc: StoredDoc): DocState {
+  docState(
+    doc: StoredDoc,
+    view = doc.status === "published" ? this.publishedView(doc) : null,
+  ): DocState {
     if (doc.status !== "published") return "needs_review";
     if (doc.exposure) return "exposed";
-    const view = this.publishedView(doc);
-    if (!view.withheld) return "shared";
+    if (!view!.withheld) return "shared";
     // Shareable by origin but showing a known value: it needs re-checking, not withholding.
     return this.originView(doc) === null ? "needs_review" : "withheld";
   }
@@ -1189,7 +1191,7 @@ export class CaseSession {
     return {
       ...rest,
       originHint: doc.originHint === undefined ? originHints(doc.original) : doc.originHint,
-      state: this.docState(doc),
+      state: this.docState(doc, view),
       withheldReason: view?.withheldReason ?? null,
       needsRecheck: published && !doc.exposure && this.originView(doc) === null &&
         view!.withheld,

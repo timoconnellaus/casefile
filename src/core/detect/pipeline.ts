@@ -83,7 +83,16 @@ function findAll(
   caseSensitive: boolean,
 ): { start: number; end: number }[] {
   const hay = typeof text === "string" ? fold(text, { lower: !caseSensitive }) : text;
-  const n = fold(needle, { lower: !caseSensitive }).text.trim();
+  return findAllFolded(hay, foldNeedle(needle, caseSensitive));
+}
+
+/** `needle` folded the way `findAll` matches it. */
+function foldNeedle(needle: string, caseSensitive: boolean): string {
+  return fold(needle, { lower: !caseSensitive }).text.trim();
+}
+
+/** `findAll` with the text and needle already folded. */
+function findAllFolded(hay: Folded, n: string): { start: number; end: number }[] {
   if (!n) return [];
   const out: { start: number; end: number }[] = [];
   let i = 0;
@@ -92,6 +101,31 @@ function findAll(
     i += n.length;
   }
   return out;
+}
+
+/**
+ * What `findKnownSpans` looks for, built once per state of the registry (`registry.derived`):
+ * every variant with its folded needle, and a title pattern ("Mr Okafor") per known surname.
+ */
+function knownMatcher(registry: EntityRegistry, opts: { leak?: boolean }) {
+  return {
+    needles: registry.variants({ leak: opts.leak })
+      .filter((v) => !v.text.includes("\n"))
+      .map((v) => ({ v, needle: foldNeedle(v.text, false) })),
+    titles: registry.list()
+      .filter((e) => e.kind === "person" && e.forms.surname)
+      .map((e) => {
+        const surname = escapeRe(foldValue(e.forms.surname!));
+        return {
+          role: e.role,
+          surname,
+          re: new RegExp(
+            `(?<![\\p{L}\\p{N}])(?:${TITLES})\\.? ${surname}(?:s)?(?![\\p{L}\\p{N}])`,
+            "giu",
+          ),
+        };
+      }),
+  };
 }
 
 /**
@@ -105,9 +139,12 @@ export function findKnownSpans(
 ): Span[] {
   const spans: Span[] = [];
   const lower = fold(text, { lower: true });
-  for (const v of registry.variants({ leak: opts.leak })) {
-    if (v.text.includes("\n")) continue;
-    for (const r of findAll(lower, v.text, false)) {
+  const matcher = registry.derived(
+    `known-spans:${Boolean(opts.leak)}`,
+    () => knownMatcher(registry, opts),
+  );
+  for (const { v, needle } of matcher.needles) {
+    for (const r of findAllFolded(lower, needle)) {
       spans.push({
         ...r,
         text: text.slice(r.start, r.end),
@@ -119,13 +156,7 @@ export function findKnownSpans(
     }
   }
   // Titles of known people, e.g. "Mr Okafor", even if that exact form was never seen.
-  for (const e of registry.list()) {
-    if (e.kind !== "person" || !e.forms.surname) continue;
-    const surname = escapeRe(foldValue(e.forms.surname));
-    const re = new RegExp(
-      `(?<![\\p{L}\\p{N}])(?:${TITLES})\\.? ${surname}(?:s)?(?![\\p{L}\\p{N}])`,
-      "giu",
-    );
+  for (const { role, surname, re } of matcher.titles) {
     for (const m of lower.text.matchAll(re)) {
       const len = m[0].endsWith("s") && !surname.endsWith("s") ? m[0].length - 1 : m[0].length;
       const r = unfold(lower, m.index!, m.index! + len);
@@ -135,7 +166,7 @@ export function findKnownSpans(
         kind: "person",
         source: "known",
         confidence: 1,
-        label: `${e.role}.title`,
+        label: `${role}.title`,
       });
     }
   }

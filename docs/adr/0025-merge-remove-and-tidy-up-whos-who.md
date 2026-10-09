@@ -27,7 +27,9 @@ values become `into`'s: a value equal to one of `into`'s forms or other names (c
 ignoring stray punctuation at either end) maps to that form; a first name, surname or title `into`
 lacks fills it; anything else becomes another name of `into` (and so renders as its full form, as
 nicknames already do). Links, the safety flag (either side's), the colour and the description carry
-over if `into` has none. Every token of `from` becomes `into`'s, with the mapped form, everywhere
+over if `into` has none. Only like with like: a person with a person, an address, phone, email,
+identifier or date of birth with the same kind; places, organisations, schools and "other" with
+each other. Every token of `from` becomes `into`'s, with the mapped form, everywhere
 rename already reaches: vault documents (replacements, pending proposals, held details, new
 matches), public.db (documents, lines, chronology, issues, evidence, notes, drafts, paragraphs),
 other entries' descriptions, document authors, affidavit headings, the user's own role and
@@ -41,8 +43,10 @@ written (ADR 6). Each document that replaced it now leaves those values as writt
 to the document's `ignore` with the reason, the replacements and proposals naming it are dropped,
 and published documents are re-tokenised and republished. Tokens of it in Claude's work and in
 descriptions become its value as written. Refused for a safety-sensitive entry (never left as
-written, ADR 15), and for an entry any of whose values is also a value of another entry (leaving
-"Daniel" as written would also uncover the father): the user merges instead. The log gets
+written, ADR 15); for an entry any of whose values contains another entry's value or part, even
+inside a longer value ("Daniel" or "Daniel Okafor Jr" would uncover the father), because the
+values are written into Claude's notes, which no leak check reads; and for a value a rule always
+replaces (a phone number, an identifier). The user merges or keeps it instead. The log gets
 `entity_removed {role}` only: no value, no reason.
 
 **Tidy up who's who** (`POST /api/people/tidy`, `suggestTidy` in `people.ts`,
@@ -50,8 +54,9 @@ written, ADR 15), and for an entry any of whose values is also a value of anothe
 accepted one goes through the same path and checks as doing it by hand (`mergeEntity`,
 `changeEntity` for a rename, `removeEntity` with the suggestion's reason).
 
-- *Rules*, always: an entry whose every value is only a time, ordinary date, amount, length of time
-  or weekday (`harmlessShape`, never for a date of birth, identifier or phone) → remove; two
+- *Rules*, always: an entry whose every value is only a time, ordinary date, amount or length of
+  time → remove. `harmlessShape` needs a digit and exact month and unit words (so "Marcus",
+  "June" or "12" never qualify) and applies only to `other`, `place` and `organisation`; two
   people whose names are the same words in another order or case, or one inside the other (a
   middle name) → merge, keeping the entry whose label is not `kind_N`.
 - *The language model* set up under Finding names, when there is one. It is sent each entry's
@@ -63,8 +68,8 @@ accepted one goes through the same path and checks as doing it by hand (`mergeEn
   still returned and the reason is shown.
 - *Checks on what the model says*: roles must exist; a merge must join two entries of the same
   kind; a new label goes through `sanitiseRole` against every known value, must be valid, unused,
-  not revealing (`revealingWords`) and without long numbers; the model may not suggest removing a
-  person, address, phone, email, identifier or date of birth unless its value has a harmless shape.
+  not revealing (`revealingWords`) and without long numbers; the model may never suggest removing
+  a person, address, phone, email, identifier or date of birth.
   Contradictions are settled (an entry merged away is not also renamed or removed; a removal beats
   a rename; one label per suggestion).
 - Suggestions and their reasons are shown in the app only and never written to public.db. The log

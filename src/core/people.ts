@@ -15,6 +15,7 @@ import {
   roleTokenRe,
 } from "./entities.ts";
 import { isValidRole } from "./tokens.ts";
+import type { TypedTextRecheck } from "./typedtext.ts";
 import { findKnownSpans } from "./detect/pipeline.ts";
 import {
   checkSuggestions,
@@ -542,7 +543,7 @@ export function changeEntity(
   s: CaseSession,
   role: string,
   change: EntityChange,
-): Promise<{ role: string; descriptionsCleared: string[] }> {
+): Promise<{ role: string; descriptionsCleared: string[]; typedText: TypedTextRecheck | null }> {
   return withEntityLock(s, async () => {
     // 1. Check everything against who's who as it will be.
     const first = planChange(s, role, change);
@@ -572,11 +573,12 @@ export function changeEntity(
     const patch: Parameters<CaseSession["updateEntity"]>[1] = { ...plan.rest };
     if (desc !== undefined) patch.description = desc;
     if (plan.descriptionsCleared.includes(current)) patch.description = null;
+    let typedText: TypedTextRecheck | null = null;
     if (Object.keys(patch).length || plan.descriptionsCleared.length) {
       // `updateEntity` changes the registry before its first await, so this is the state checked.
-      await s.updateEntity(current, patch);
+      typedText = await s.updateEntity(current, patch);
     }
-    return { role: current, descriptionsCleared: plan.descriptionsCleared };
+    return { role: current, descriptionsCleared: plan.descriptionsCleared, typedText };
   });
 }
 

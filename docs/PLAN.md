@@ -44,7 +44,7 @@ This file says what is built, what is deliberately not built and why, and what i
 3. **Review** (`#/review/<id>`): findings grouped Needs you / People / Places & organisations / Numbers, dates & addresses / Left as written. "Leave as written" needs a reason and is refused for safety-sensitive values. The user answers "Where did you get this document?" and sees the title Claude will see (a dry run of publishing).
 4. **Publish**: tokenise, run the leak check over body and title, and write to `public.db`. The document is then **Shared** or **Withheld** by its origin and the Claude plan (ADR 7). Undo share and Review again keep earlier decisions.
 5. **Re-identify** on display and export. Unknown or malformed tokens are flagged, never silently passed through (ADR 5).
-6. **Exposure**: every change to who's who re-checks every shared document; one that now shows a known value is withdrawn at once and recorded with Claude's reads of it through casefile (ADR 7).
+6. **Exposure**: every change to who's who re-checks every shared document; one that now shows a known value is withdrawn at once and recorded with Claude's reads of it through casefile (ADR 7). The rest of public.db's text (notes, chronology entries, issues, evidence notes, draft paragraphs and titles, tags, document details) is re-checked at the same time (ADR 27): the user's own text, as the ledger records it, has the value replaced by its token; Claude's text and text casefile can't attribute are left as written and listed in People after the change.
 
 ## What is built, by milestone
 
@@ -114,7 +114,7 @@ These are deliberate (REBUILD-PLAN section 3). The UI says so honestly rather th
 
 **Text not re-checked**
 
-- **Notes and drafts are not re-checked when a nickname is added.** The exposure check covers documents (and relationship descriptions, which are cleared). Text already in `public.db` that was tokenised before a value was known (the user's notes, draft paragraphs and titles, and other text the user typed) is not scanned again when a nickname or new entity is added, so a value the detectors missed at the time stays visible to Claude.
+- **Text re-checked when a nickname is added is only partly rewritten (ADR 27).** The user's own notes, chronology entries, issues, evidence notes and paragraphs have a value learnt later replaced by its token. Claude's text that names someone is never rewritten (that would confirm Claude's guesses), and draft titles, tags and document details are not either, because only public.db records who wrote them; all of these are listed for the user, who edits them by hand. Only the known-values matcher runs on this text again, not the name finder or the language model.
 - Work Claude derived from a document while it was shared (chronology entries, notes, paragraphs) stays in `public.db` after the document is withheld or withdrawn (ADR 7).
 
 **Legacy and grandfathered data**

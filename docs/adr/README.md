@@ -33,6 +33,8 @@ the later amendment wins.
 | [24](0024-desktop-updates-from-signed-github-releases.md) | The desktop app updates itself from GitHub releases: an Ed25519-signed `latest.json` (key only in an approval-gated `release` environment) and bsdiff patches; "Restart to update" (one relaunch, working around a Deno 2.9.7 launcher bug); a backup before a new version opens a case; the CLI shipped inside the app. | Accepted | None |
 | [25](0025-merge-remove-and-tidy-up-whos-who.md) | Who's who entries can be merged (every token rewritten, values become forms or other names) and removed with a reason (values left as written; refused for safety-sensitive or shared values). "Tidy up who's who" suggests merges, relationship labels and removals from rules and from the local language model (ADR 12 rules), checked before they are shown; model detections of times, dates and amounts are dropped. | Accepted | None |
 
+| [27](0027-recheck-typed-text-when-who-s-who-learns-a-value.md) | Every change to who's who re-checks the rest of public.db's text (notes, chronology, issues, evidence, paragraphs, draft titles, tags, document details): the user's own text, as the ledger records it, has the value replaced by its token and stays theirs; Claude's text and text casefile can't attribute are left as written and listed (never rewritten: probe). Vault record, count-only log row. | Accepted | None |
+
 ## Notes on residuals recorded in ADRs
 
 - ADR 15, amendment 2, left `CaseSession.publish` outside the entity lock. It is now under

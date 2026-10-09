@@ -723,3 +723,29 @@ Deno.test("entity changes run one at a time", async () => {
   await Promise.all([slow, fast, failing.catch(() => {}), after]);
   assertEquals(order, ["a start", "a end", "b", "c"]);
 });
+
+Deno.test("adding a nickname: PATCH reports the items in Claude's copy it replaced and left, by label only (ADR 27)", async () => {
+  const t = await canonApp({ omitAliases: ["Annie"] });
+  // The user's note, saved before casefile knew "Annie" (no name finder catches it here).
+  const s = t.s;
+  s.detectors = [];
+  const r1 = await t.user.post("/api/notes", {
+    on: "document:D001",
+    text: "Annie rang about the changeover.",
+  });
+  assertEquals(r1.status, 200, r1.text);
+  const claudeNote = s.store.addNote("document", "D001", "Is Annie the mother?", "claude");
+  const r = await t.user.req("PATCH", "/api/entities/mother", { aliases: ["Ana", "Annie"] });
+  assertEquals(r.status, 200, r.text);
+  assertEquals(r.json.typedText.replaced.map((i: { kind: string }) => i.kind), ["note"]);
+  assertEquals(r.json.typedText.left, [{
+    kind: "note",
+    id: String(claudeNote),
+    label: `note ${claudeNote}`,
+    why: "claude",
+  }]);
+  assert(!r.text.includes("Annie"), "the response names no value");
+  const notes = s.store.listNotes().filter((n) => n.created_by === "user");
+  assert(notes.every((n) => !n.body.includes("Annie")));
+  t.state.lock();
+});

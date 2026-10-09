@@ -1058,6 +1058,38 @@ export class Ledger {
   }
 
   /**
+   * casefile itself rewrote one of the user's items (a value learnt later replaced by its token,
+   * `typedtext.ts`): the user's marks on it (removed, dealt with) carry over to the new content,
+   * so the rewrite neither brings back a removed item nor reopens a note. `before` is the row as
+   * it was signed, `after` as it is now. The mark's date becomes the rewrite's.
+   */
+  async carryMarks(
+    type: RemovableType | "note",
+    before: ChronologyRow | EvidenceRow | IssueRow | NoteRow,
+    after: ChronologyRow | EvidenceRow | IssueRow | NoteRow,
+  ): Promise<void> {
+    if (type === "note") {
+      const was = await this.#markStatus(
+        "note_done",
+        String(before.id),
+        this.#noteDoneContent(before as NoteRow),
+      );
+      if (was.status === "valid") {
+        await this.attest("note_done", after.id, this.#noteDoneContent(after as NoteRow));
+      }
+      return;
+    }
+    const b = before as ChronologyRow | EvidenceRow | IssueRow;
+    if (await this.removedByUser(type, b) !== null) {
+      await this.attest(
+        "removal",
+        `${type}/${after.id}`,
+        this.#removalContent(type, after as ChronologyRow | EvidenceRow | IssueRow),
+      );
+    }
+  }
+
+  /**
    * The user removes an item (restorably). The removal is recorded in the vault first, then
    * public.db's `removed_at` is set so the CLI hides it from Claude. Attestations are kept.
    */

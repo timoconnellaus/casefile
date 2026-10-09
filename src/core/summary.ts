@@ -1210,6 +1210,13 @@ const LABELS: Record<string, Label> = {
         : null;
     },
   ],
+  typed_text_rechecked: [
+    "people",
+    (d) =>
+      `casefile replaced a name it now knows in ${
+        typeof d.count === "number" ? plural(d.count, "item") : "items"
+      } you wrote`,
+  ],
   settings_changed: [
     "settings",
     () => "You changed the case settings",

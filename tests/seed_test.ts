@@ -117,6 +117,22 @@ Deno.test({
     assert(summary.text.includes("casefile's name finder, which runs on this computer: used on"));
     // No link suggestions are left open in the seeded case.
     assertEquals((await t.user.get("/api/people/link-suggestions")).json.suggestions, []);
+    // Claude's work from D006 (2 Oct, checked by the user on 3 Oct): the exposure banner lists it
+    // under "When you share D006 again, these go back to To check" (PLAN.md known gap, closed).
+    const d006 = (await t.user.get("/api/docs/D006")).json;
+    assertEquals(
+      d006.citedIn.map((c: { type: string; state: string }) => [c.type, c.state]),
+      [["chronology", "checked"], ["evidence", "checked"]],
+    );
+    const recheck = await t.user.post("/api/docs/recheck", { docs: ["D006"] });
+    assertEquals(recheck.status, 200, recheck.text);
+    assertEquals(recheck.json.results.map((r: { state: string }) => r.state), ["shared"]);
+    const back = (await t.user.get("/api/docs/D006")).json.citedIn;
+    assertEquals(back.map((c: { state: string }) => c.state), ["changed", "changed"]);
+    const after = (await t.user.get("/api/to-check")).json;
+    // D006 leaves the queue; its two items come back as "Changed since you checked".
+    assertEquals(after.total, 15);
+
     // The seed's clock is gone once it is done.
     assert(Math.abs(Date.now() - performance.timeOrigin - performance.now()) < 60_000);
 

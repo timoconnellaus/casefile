@@ -309,12 +309,17 @@ export function fillerDoc(n: number): SeedDoc {
   };
 }
 
-/** Claude's chronology (tokenised, as Claude writes it through the CLI). */
+/**
+ * Claude's chronology (tokenised, as Claude writes it through the CLI). `whileShared`: Claude
+ * wrote it on 2 October from D006 while D006 was shared, and the user checked it on 3 October,
+ * before "Annie" withdrew D006; sharing D006 again lists it under "these go back to To check".
+ */
 export const CHRONOLOGY: {
   date: string;
   text: string;
   sources: string[];
   check: "checked" | "to_check" | "cant_check";
+  whileShared?: true;
 }[] = [
   {
     date: "2025-02-11",
@@ -411,10 +416,11 @@ export const CHRONOLOGY: {
     check: "checked",
   },
   {
-    date: "2025-02-11",
-    text: "{{school}} finishes at 3pm.",
-    sources: ["D003:1-3"],
+    date: "2025-09-26",
+    text: "{{father.first}}'s lawyers proposed that changeovers happen at {{school}}.",
+    sources: ["D006:2-5"],
     check: "checked",
+    whileShared: true,
   },
   {
     date: "2025-03-14",
@@ -449,13 +455,17 @@ export const ISSUES: { title: string; desc: string; checked: boolean }[] = [
   },
 ];
 
-/** Evidence links (issue index into ISSUES). 11 links, 9 checked (CANON). */
+/**
+ * Evidence links (issue index into ISSUES). 11 links, 9 checked (CANON). `whileShared`: from
+ * D006, as for CHRONOLOGY.
+ */
 export const EVIDENCE: {
   issue: number;
   source: string;
   stance: "supports" | "undermines" | "context";
   note: string;
   checked: boolean;
+  whileShared?: true;
 }[] = [
   {
     issue: 0,
@@ -488,7 +498,14 @@ export const EVIDENCE: {
   },
   { issue: 1, source: "D003:1-3", stance: "supports", note: "Teacher's email.", checked: true },
   { issue: 1, source: "D013:2-3", stance: "context", note: "Swimming lessons.", checked: true },
-  { issue: 2, source: "D012:3-4", stance: "context", note: "Weekend swap request.", checked: true },
+  {
+    issue: 2,
+    source: "D006:4",
+    stance: "undermines",
+    note: "Their lawyer says two requests to change weekends were refused.",
+    checked: true,
+    whileShared: true,
+  },
   {
     issue: 2,
     source: "D001:4",

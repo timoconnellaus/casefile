@@ -74,7 +74,7 @@ The original milestones (1–6) built the core and a first app; the v2 rebuild (
 - **Citations of earlier affidavits**: on a document's page the user records that it is an affidavit they swore or affirmed, and when (vault only). On export, a citation of it becomes "my affidavit sworn 2 April 2025, para 4" when "Who wrote it" is the export's speaker (the affidavit's deponent, else the user); the paragraph number comes from the vault original. An annexure mark wins; otherwise "Title, line N" as before (ADR 27).
 - **Word (.docx) export**: drafts and the chronology as `.docx` with the reviewed, exactly pinned `docx` package (9.7.2), run in a Web Worker with no permissions; the same layout, gates, safety check (on the file read back as Word shows it) and counts-only logging as RTF, which stays available. No PDF export: open the `.docx` in Word and Save as PDF (ADR 26).
 - **Extra checks** (ADR 14): a `Judge` interface with three backends (a pinned NLI model on this computer, the language model under Finding names, Jev by TypeSafe), asked on request about chronology entries, evidence, draft paragraphs and shared documents; flags only, counts-only logging, Jev off by default and listed in the Court summary when used; thresholds calibrated on a synthetic labelled set (`deno task judge-eval`).
-- **Seed**: `deno task seed` builds the synthetic CANON case (312 or 40 documents) through the real flows.
+- **Seed**: `deno task seed` builds the synthetic CANON case (312 or 40 documents) through the real flows; Claude's work citing D006 (a chronology entry and an evidence link, checked before D006 was withdrawn) fills the exposure banner's "these go back to To check" list.
 
 - **Cleanup** (W3-4): the legacy views and their shims, the `#/search` page and the old redirects are gone; so are the deprecated API surfaces (`sensitivity` fields and `POST /api/docs/:id/sensitivity`, `similarity`, the three-value paragraph `status`, `/api/stats`, `/api/reidentify`, `/api/settings/claude-setup`, the array-shaped `/api/search` and the `/api/entities` list). The API accepts origin values only; stored pre-v4 vault documents still read. Every value left as written needs the user's reason.
 
@@ -127,7 +127,6 @@ These are deliberate (REBUILD-PLAN section 3). The UI says so honestly rather th
 
 **Known gaps**
 
-- The exposure banner's list of Claude's work that goes back to "To check" when D006 is shared again has no seeded example: the CANON seed has no Claude work citing D006, so that list has not been seen in the browser (QA D4).
 - The document API still returns `status` (`pending` / `published`) next to `state`: the screens use it to tell a document never reviewed from one reviewed but waiting for a re-check, which `state` (`needs_review` for both) does not distinguish.
 - The packaged desktop app (`deno task desktop`) is built but not smoke-tested (above).
 

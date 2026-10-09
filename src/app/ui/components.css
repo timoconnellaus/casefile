@@ -1395,3 +1395,11 @@ a:where(.mono, .extlink) {
   font-size: var(--fs-sm);
   color: var(--ink);
 }
+
+/* The file a document was read from (components/original.js, ADR 23). */
+.orig-file {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-block: var(--sp-2);
+}

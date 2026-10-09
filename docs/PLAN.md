@@ -33,7 +33,7 @@ This file says what is built, what is deliberately not built and why, and what i
 
 ## De-identification pipeline
 
-1. **Input**: plain text and Markdown only (`.txt`, `.md`): drop files or a folder, choose files, or paste text. Each import is a batch reviewed as a queue. PDF, email and photos are listed as "coming soon" with copy-and-paste guidance.
+1. **Input**: plain text, Markdown and PDF (`.txt`, `.md`, `.pdf`): drop files or a folder, choose files, or paste text. Each import is a batch reviewed as a queue. A PDF's text layer is read in a worker with no permissions and the PDF is kept encrypted in the vault (`original-<id>`), viewable from the review and document screens; scanned PDFs are refused and scanned pages reported (ADR 23). Scanned PDFs, email and photos are listed as "coming soon" with copy-and-paste guidance.
 2. **Detect**, in layers, on folded text with one matcher (ADR 6):
    - Australian rules: Medicare, TFN, ABN/ACN (checksums), phone, email, street address, suburb/state/postcode, dates of birth, court file numbers, BSB/account, licence/passport, social-media handles and profile URLs. Role hints such as `medicare_1`, `tfn_1`, `file_number`.
    - Every form, alias and identifying part of every entity already in the case.
@@ -54,7 +54,7 @@ The original milestones (1–6) built the core and a first app; the v2 rebuild (
 3. **Desktop app v1** — built, then rebuilt in v2. Import, review, publish, real-name reading view, local API security (ADR 13).
 4. **Organisation** — built. CLI write commands (document details, tags, chronology, issues, evidence, notes, drafts and paragraphs) and the user's checks, signed in a vault ledger (ADR 8), with the CLI refusing to change what the user checked or adopted.
 5. **Drafting workspace** — built. Per-paragraph authorship and adoption with an affidavit export gate (ADR 9); draft kind recorded in the ledger.
-6. **Packaging and more formats** — packaging partly built. `deno task desktop` builds `dist/casefile.app` with `deno desktop` (the UI files are included; the bundle is about 310 MB because of the NER runtime). The bundle builds and signs ad hoc, but the packaged app has not been run through the smoke test; `deno task app` in a browser remains the tested way to run it (ADR 2). PDF, OCR and DOCX input are deferred (below).
+6. **Packaging and more formats** — packaging partly built. `deno task desktop` builds `dist/casefile.app` with `deno desktop` (the UI files are included; the bundle is about 310 MB because of the NER runtime). The bundle builds and signs ad hoc, but the packaged app has not been run through the smoke test; `deno task app` in a browser remains the tested way to run it (ADR 2). PDF import (text layer) is built (ADR 23); OCR and DOCX input are deferred (below).
 
 **v2 rebuild** (all in the app and CLI as they stand):
 
@@ -80,8 +80,8 @@ These are deliberate (REBUILD-PLAN section 3). The UI says so honestly rather th
 
 | Item | Why it is deferred | What the app does instead |
 |---|---|---|
-| PDF/OCR, `.eml`/`.msg`, photo import | Needs extractor and OCR libraries and binary originals in the vault (a format change needing an ADR) | Import lists them as "coming soon" and says to copy the text, use Paste text, and keep the original outside the case folder |
-| Attaching original files as annexures | Originals are text only; binary vault storage is a format change | Annexure marks work (ADR 21); the user attaches the originals when filing |
+| OCR (scanned PDFs), `.eml`/`.msg`, photo import | Needs OCR and mail-parsing libraries. Text-layer PDF import and binary originals in the vault are built (ADR 23) | A PDF with no text is refused and pages without text are reported; import lists the rest as "coming soon" and says to copy the text, use Paste text, and keep the original outside the case folder |
+| Attaching original files as annexures | Only PDFs keep their original (ADR 23); exports don't attach files yet | Annexure marks work (ADR 21); the user attaches the originals when filing |
 | `.docx` / PDF export | No approved dependency; zip and docx generation is unreviewed surface | "Export for Word (.rtf)"; to make a PDF, open it in Word and Save as PDF |
 | Encrypted single-file backup and restore | The restore path is the risky part and needs its own ADR and tests | Getting started lists backup as not available yet; copy the whole case folder while casefile is closed. The recovery key **is** built |
 | Judge backends and Jev (ADR 14), judgement fact checks, a quasi-identifier pass | The classifier and LLM calibration are unbuilt | Only casefile's deterministic checks (names, dates, numbers) run; the Court summary says Jev is off |

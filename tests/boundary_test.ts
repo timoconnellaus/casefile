@@ -14,6 +14,7 @@ const FORBIDDEN = [
   "src/core/detect/",
   "src/core/tokenise.ts",
   "src/core/drafting.ts",
+  "src/core/pdf", // pdf.ts and its worker: the original files (ADR 23)
   "src/app/",
 ];
 

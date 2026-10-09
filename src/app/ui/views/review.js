@@ -28,6 +28,7 @@ import {
   linkEntities,
   listShortcuts,
   MarkTag,
+  OriginalFile,
   Segmented,
   showToast,
 } from "../components/index.js";
@@ -506,6 +507,8 @@ class Review {
     this.root = h("div", { class: "rv" });
     this.queueEl = h("nav", { class: "rv-queue", "aria-label": "Imported documents to review" });
     this.headEl = h("div", { class: "rv-head" });
+    // The PDF it was read from, if any (ADR 23).
+    this.fileEl = h("div", { class: "rv-file" });
     this.keyEl = h("div", { class: "rv-key", "data-region": "key" });
     this.findingsEl = h("aside", {
       class: "rv-findings",
@@ -526,6 +529,7 @@ class Review {
     this.root.append(
       this.queueEl,
       this.headEl,
+      this.fileEl,
       this.keyEl,
       h("div", { class: "rv-cols" }, this.findingsEl, this.textEl, this.sideEl),
       this.confirmHost,
@@ -790,6 +794,9 @@ class Review {
       ),
       h("span", { class: "spacer" }),
       seg,
+    );
+    this.fileEl.replaceChildren(
+      ...[OriginalFile(this.data.id, this.data.file ?? null)].filter(Boolean),
     );
   }
 

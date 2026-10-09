@@ -1,6 +1,8 @@
 // Route handlers are uniformly async, whether or not a given one awaits.
 // deno-lint-ignore-file require-await
+import { decodeBase64 } from "@std/encoding/base64";
 import { parseOrigin } from "../../core/publicdb.ts";
+import { extractPdfText, MAX_PDF_BYTES, PdfError } from "../../core/pdf.ts";
 import {
   type CaseSession,
   LeakError,
@@ -78,6 +80,8 @@ export function docsRoutes({ s, show, plain, notes, guardedSave }: RouteContext)
           cited: cited[d.id] ?? 0,
           detectorErrors: d.detectorErrors,
           batch: d.batch ?? null,
+          // "pdf" when imported from a PDF kept in the vault (ADR 23).
+          format: d.file?.type ?? null,
           // Findings waiting for the user's decision on the review screen ("Needs you").
           undecided: d.undecided,
           // App only: real values found by a change to who's who while it waited for review.
@@ -120,6 +124,59 @@ export function docsRoutes({ s, show, plain, notes, guardedSave }: RouteContext)
         originHint: doc.originHint ?? null,
       };
     }),
+    // A PDF (ADR 23): `pdf` is the file in base64. Its text is imported like `/api/docs/import`'s,
+    // and the file is kept in the vault.
+    route("POST", "/api/docs/import-pdf", async ({ body }) => {
+      const b = await body();
+      const given = str(b.origin, "origin", false);
+      const title = str(b.title, "title", false) || "Untitled";
+      const pdf = str(b.pdf, "pdf");
+      const origin = given ? parseOrigin(given) : null;
+      if (b.batch !== undefined && b.batch !== null && !s().isBatch(b.batch)) {
+        throw new HttpError(400, "No such import batch");
+      }
+      // Base64 is 4 characters per 3 bytes; refuse an oversized file before decoding it.
+      if (pdf.length > Math.ceil(MAX_PDF_BYTES / 3) * 4) throw new PdfError("too_large");
+      let bytes: Uint8Array;
+      try {
+        bytes = decodeBase64(pdf);
+      } catch {
+        throw new HttpError(400, "pdf must be base64");
+      }
+      // Read first, so a PDF that can't be read starts no batch.
+      const { text, info } = await extractPdfText(bytes);
+      const batch: string = typeof b.batch === "string" ? b.batch : await s().newBatch();
+      const doc = await s().importText({
+        title,
+        text,
+        source: str(b.source, "source", false) || undefined,
+        origin,
+        batch,
+      }, { bytes, info });
+      return {
+        id: doc.id,
+        batch,
+        detections: doc.proposals.length,
+        undecided: undecidedCount(doc.proposals),
+        detectorErrors: doc.detectorErrors,
+        origin: doc.origin,
+        originHint: doc.originHint ?? null,
+        pages: doc.file?.pages ?? null,
+        emptyPages: doc.file?.emptyPages ?? [],
+      };
+    }),
+    // The file a document was imported from (ADR 23), to compare with the text read from it.
+    // Named by id, never by title.
+    route("GET", "/api/docs/:id/original", async ({ params }) => {
+      const orig = await s().readOriginal(params.id);
+      if (!orig) throw new HttpError(404, "This document was not imported from a file");
+      return new Response(orig.bytes as Uint8Array<ArrayBuffer>, {
+        headers: {
+          "content-type": "application/pdf",
+          "content-disposition": `inline; filename="${params.id.replace(/[^A-Za-z0-9]/g, "")}.pdf"`,
+        },
+      });
+    }),
     route("GET", "/api/docs/:id/review", async ({ params }) => {
       const doc = await s().getDoc(params.id);
       return {
@@ -134,6 +191,7 @@ export function docsRoutes({ s, show, plain, notes, guardedSave }: RouteContext)
         newEntities: doc.newEntities,
         detectorErrors: doc.detectorErrors,
         nameDetection: s().nameDetection,
+        file: doc.file ?? null,
         ignore: doc.ignore,
         ignoreReasons: doc.ignoreReasons ?? {},
         replacements: doc.replacements,
@@ -250,6 +308,7 @@ export function docsRoutes({ s, show, plain, notes, guardedSave }: RouteContext)
         originHint: doc.originHint ?? null,
         // Who wrote it, as the user recorded it (vault). Not public.db's author_role.
         author: await docAuthor(s(), doc.id),
+        file: doc.file ?? null,
         citedIn,
         activity,
       };
@@ -335,7 +394,9 @@ export function docsRoutes({ s, show, plain, notes, guardedSave }: RouteContext)
 
 export const docsErrors: ErrorMapper[] = [
   (e) =>
-    e instanceof SafetyError
+    e instanceof PdfError
+      ? { status: 422, body: { error: e.message, code: e.code } }
+      : e instanceof SafetyError
       ? { status: 409, body: { error: e.message, safety: e.roles } }
       : e instanceof LeakError
       ? { status: 409, body: { error: e.message, leaks: e.leaks } }

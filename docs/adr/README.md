@@ -29,6 +29,7 @@ the later amendment wins.
 | [20](0020-ui-design-system.md) | Dark-only UI, classes never inline styles (CSP), bundled IBM Plex, one state vocabulary in `ui/model.js`, shared components and router. | Accepted | None |
 | [21](0021-export-formats-annexure-marks-provenance.md) | Dependency-free RTF export for affidavits and the chronology, vault-only annexure marks, a provenance report from signed records, and a safety confirmation before exporting a protected address. | Accepted | None |
 | [22](0022-daily-use-releases-and-upgrade-backups.md) | The main checkout is the copy in daily use, updated by `deno task release` (checks, a backup in the app's folder Claude can't read, CLI install, tag). `deno task dev` opens cases only in `.dev/`. Each shipped public.db schema is frozen and must migrate. | Accepted | Restart into an update: `deno task app` is a supervisor; the app hands its data key and session token to its replacement over pipes, the case is backed up in between, the browser stays signed in |
+| [23](0023-pdf-import-and-original-files.md) | PDF import reads the text layer only (no OCR), with `npm:unpdf` in a Web Worker with no permissions and a time limit; the PDF is kept encrypted in the vault as `original-<id>`, viewable by a signed-in caller, never in public.db. | Accepted | None |
 
 ## Notes on residuals recorded in ADRs
 

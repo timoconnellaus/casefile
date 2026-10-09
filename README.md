@@ -104,3 +104,7 @@ is present to check the RTF export.
 The limits matter as much: casefile cannot see what Claude Code does outside the CLI (shell reads
 are not logged), and the sandbox settings it writes are honoured by Claude Code, not enforced by
 casefile. [docs/PLAN.md](docs/PLAN.md) lists the known limitations and remaining risks.
+
+## License
+
+MIT. See [LICENSE](LICENSE).

@@ -779,9 +779,21 @@ export class PublicStore {
 
   /** Rewrite a role name everywhere tokenised text is stored (after the user renames an entity). */
   renameRoleInText(oldRole: string, newRole: string) {
-    const re = new RegExp(`\\{\\{${oldRole}(\\.(?:first|surname|title))?\\}\\}`, "g");
-    const swap = (s: string) => s.replace(re, (_m, f) => `{{${newRole}${f ?? ""}}}`);
-    const like = `%{{${oldRole}%`;
+    this.replaceRoleTokens(
+      oldRole,
+      (form) => form === "full" ? `{{${newRole}}}` : `{{${newRole}.${form}}}`,
+    );
+  }
+
+  /**
+   * Replace every token of `role` everywhere tokenised text is stored with what `to` gives for its
+   * form (`full`, `first`, `surname`, `title`): another role's token when entries are merged, or
+   * the value itself when the user removes an entry (ADR 25).
+   */
+  replaceRoleTokens(role: string, to: (form: string) => string) {
+    const re = new RegExp(`\\{\\{${role}(\\.(?:first|surname|title))?\\}\\}`, "g");
+    const swap = (s: string) => s.replace(re, (_m, f) => to(f ? f.slice(1) : "full"));
+    const like = `%{{${role}%`;
     this.tx(() => {
       for (
         const d of this.#all<{ id: string; title: string; body: string | null }>(

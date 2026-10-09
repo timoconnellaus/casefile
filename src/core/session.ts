@@ -3,7 +3,13 @@ import { type CasePaths, casePaths, isCaseDir, writeCaseScaffold } from "./case.
 import { CaseLock } from "./caselock.ts";
 import { detect, type NewEntityProposal, type ProposedSpan } from "./detect/pipeline.ts";
 import type { Detector } from "./detect/types.ts";
-import { type Entity, type EntityKind, EntityRegistry, normaliseVariant } from "./entities.ts";
+import {
+  type Entity,
+  type EntityKind,
+  EntityRegistry,
+  normaliseVariant,
+  swapRoleTokens,
+} from "./entities.ts";
 import {
   type Actor,
   type ChronologyRow,
@@ -30,6 +36,7 @@ import { Signer } from "./signing.ts";
 import { applyTokens, findLeaks, knownMatches, type Leak, tokeniseKnown } from "./tokenise.ts";
 import {
   type Form,
+  formatToken,
   type Malformed,
   parseTokens,
   type RenderResult,
@@ -2095,6 +2102,197 @@ export class CaseSession {
       if (d.status === "published") this.republish(await this.getDoc(d.id));
     }
     this.store.log("user", "entity_renamed", { from: oldRole, to: newRole });
+  }
+
+  /**
+   * Rewrite every vault document's references to `role` (ADR 25). `replacement` says what each
+   * replacement of `role` becomes: another role and form (merge) or null (left as written, with
+   * `reason`). `swapText` rewrites tokenised text (held details). Published documents are
+   * re-tokenised from their replacements.
+   */
+  async #rewriteRoleInDocs(
+    role: string,
+    replacement: (form: Form) => { role: string; form: Form } | null,
+    swapText: (t: string) => string,
+    reason?: string,
+  ) {
+    for (const d of await this.listDocs()) {
+      const doc = await this.getDoc(d.id);
+      const before = JSON.stringify(doc);
+      const leave = (text: string) => {
+        const v = text.trim();
+        if (!v) return;
+        if (!(doc.ignore ?? []).some((i) => normaliseVariant(i) === normaliseVariant(v))) {
+          doc.ignore = [...(doc.ignore ?? []), v];
+        }
+        doc.ignoreReasons = { ...(doc.ignoreReasons ?? {}), [v]: reason ?? "" };
+      };
+      if (doc.heldDetails) {
+        const h = doc.heldDetails;
+        const sw = (t: string | null) => t === null ? null : swapText(t);
+        doc.heldDetails = {
+          ...h,
+          doc_type: sw(h.doc_type),
+          doc_date: sw(h.doc_date),
+          author_role: sw(h.author_role),
+          source: sw(h.source),
+        };
+      }
+      if (doc.newMatch) {
+        doc.newMatch.values = doc.newMatch.values.flatMap((v) => {
+          if (v.role !== role) return [v];
+          const to = replacement("full");
+          return to ? [{ ...v, role: to.role }] : [];
+        });
+      }
+      doc.replacements = doc.replacements.flatMap((r) => {
+        if (r.role !== role) return [r];
+        const to = replacement(r.form);
+        if (!to) {
+          leave(doc.original.slice(r.start, r.end));
+          return [];
+        }
+        return [{ ...r, ...to }];
+      });
+      doc.proposals = doc.proposals.flatMap((s): ProposedSpan[] => {
+        const p = s.proposal;
+        if (p.type === "existing") {
+          if (p.role !== role) return [s];
+          const to = replacement(p.form);
+          if (!to) {
+            leave(s.text);
+            return [];
+          }
+          return [{ ...s, proposal: { type: "existing", role: to.role, form: to.form } }];
+        }
+        if (p.type !== "ambiguous") return [s];
+        const options = p.options.flatMap((o) => {
+          if (o.isNew || o.ref !== role) return [o];
+          const to = replacement(o.form);
+          return to ? [{ ref: to.role, form: to.form, isNew: false }] : [];
+        }).filter((o, i, all) => all.findIndex((x) => x.ref === o.ref && x.form === o.form) === i);
+        if (options.length > 1) return [{ ...s, proposal: { type: "ambiguous", options } }];
+        if (options.length === 0) {
+          leave(s.text);
+          return [];
+        }
+        const o = options[0];
+        if (!o.isNew) {
+          return [{ ...s, proposal: { type: "existing", role: o.ref, form: o.form } }];
+        }
+        const ne = doc.newEntities.find((n) => n.key === o.ref);
+        if (!ne) return [{ ...s, proposal: { type: "ambiguous", options } }];
+        return [{
+          ...s,
+          proposal: {
+            type: "new",
+            key: ne.key,
+            kind: ne.kind,
+            full: ne.full,
+            roleHint: ne.roleHint,
+            form: o.form,
+          },
+        }];
+      });
+      if (doc.status === "published") {
+        doc.tokenised = applyTokens(doc.original, doc.replacements);
+        doc.tokenisedTitle = tokeniseKnown(doc.title, this.registry).text;
+      }
+      if (JSON.stringify(doc) !== before) await this.saveDoc(doc);
+    }
+  }
+
+  /**
+   * Merge entity `from` into `into` (ADR 25): one person (or place, school…) written two ways.
+   * Every token of `from` becomes `into`'s, in the vault and in public.db (documents, Claude's
+   * notes, chronology, issues, drafts), `from`'s values become `into`'s forms or other names, and
+   * `from` leaves who's who. Items whose text changes need checking again, as after a rename.
+   */
+  mergeEntity(from: string, into: string): Promise<void> {
+    return this.withEntityLock(() => this.#mergeEntity(from, into));
+  }
+
+  async #mergeEntity(from: string, into: string) {
+    if (!this.registry.get(from) || !this.registry.get(into)) {
+      throw new InvalidInputError("Both entries must be in who’s who.");
+    }
+    if (from === into) throw new InvalidInputError("Choose a different entry to merge into.");
+    // Check on a copy: no role name may give away a value it now carries.
+    const copy = new EntityRegistry(this.registry.toJSON());
+    const was = new Map(copy.list().map((e) => [e.role, copy.revealingWords(e.role)]));
+    copy.merge(from, into);
+    for (const e of copy.list()) {
+      const now = copy.revealingWords(e.role).filter((w) => !(was.get(e.role) ?? []).includes(w));
+      if (now.length) {
+        throw new InvalidInputError(
+          `Merging would make the label ${formatToken(e.role)} give away “${
+            now.join(", ")
+          }”. Role names are visible to Claude: rename ${formatToken(e.role)} first.`,
+        );
+      }
+    }
+    const map = this.registry.merge(from, into);
+    const swap = (t: string) => swapRoleTokens(t, from, (f) => formatToken(into, map[f]));
+    await this.#rewriteRoleInDocs(from, (f) => ({ role: into, form: map[f] }), swap);
+    this.store.replaceRoleTokens(from, (f) => formatToken(into, map[f as Form]));
+    await this.#followRoles({ from, to: into });
+    await renameInExposures(this, from, into);
+    await this.saveRegistry();
+    for (const d of await this.listDocs()) {
+      if (d.status === "published") this.republish(await this.getDoc(d.id));
+    }
+    this.store.log("user", "entity_merged", { from, into });
+  }
+
+  /**
+   * Stop replacing an entity (ADR 25): the user says it identifies no one (a time of day, a
+   * heading). Its values are left as written, with `reason`, in every document that had them,
+   * tokens of it in Claude's work become its value, and it leaves who's who. Refused for a
+   * safety-sensitive entry, and for a value that is also another entry's (merge instead).
+   */
+  removeEntity(role: string, reason: string): Promise<void> {
+    return this.withEntityLock(() => this.#removeEntity(role, reason));
+  }
+
+  async #removeEntity(role: string, reason: string) {
+    const e = this.registry.get(role);
+    if (!e) throw new InvalidInputError("That entry isn’t in who’s who.");
+    const why = reason.replace(/\s+/g, " ").trim();
+    if (!why) throw new InvalidInputError("Say why it can be left as written.");
+    if (this.registry.isSafetySensitive(role)) {
+      throw new InvalidInputError(
+        "This entry is safety-sensitive, so casefile always replaces it. Turn that off first if it is wrong.",
+      );
+    }
+    const values = [e.forms.full, e.forms.first, e.forms.surname, e.forms.title, ...e.aliases]
+      .filter((v): v is string => !!v);
+    const own = new Set(values.map(normaliseVariant));
+    for (const v of this.registry.variants({ leak: true })) {
+      if (v.entity.role !== role && own.has(normaliseVariant(v.text))) {
+        throw new InvalidInputError(
+          `“${v.text}” is also how ${
+            formatToken(v.entity.role)
+          } is written, so it can’t be left as written. Merge this entry into ${
+            formatToken(v.entity.role)
+          } instead.`,
+        );
+      }
+    }
+    const value = (f: Form) => e.forms[f] ?? e.forms.full;
+    const swap = (t: string) => swapRoleTokens(t, role, value);
+    this.registry.remove(role);
+    // Other entries' descriptions that named it now say it as written.
+    for (const other of this.registry.list()) {
+      if (other.description) other.description = swap(other.description);
+    }
+    await this.#rewriteRoleInDocs(role, () => null, swap, why);
+    this.store.replaceRoleTokens(role, (f) => value(f as Form));
+    await this.saveRegistry();
+    for (const d of await this.listDocs()) {
+      if (d.status === "published") this.republish(await this.getDoc(d.id));
+    }
+    // The reason and the value stay in the vault: the log gets the role only.
+    this.store.log("user", "entity_removed", { role });
   }
 
   /**

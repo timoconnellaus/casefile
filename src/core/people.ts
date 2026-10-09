@@ -16,6 +16,15 @@ import {
 } from "./entities.ts";
 import { isValidRole } from "./tokens.ts";
 import { findKnownSpans } from "./detect/pipeline.ts";
+import {
+  checkSuggestions,
+  llmSuggestions,
+  ruleSuggestions,
+  settle,
+  type TidyEntry,
+  type TidyOptions,
+  type TidyResult,
+} from "./detect/tidy.ts";
 import { foldValue } from "./fold.ts";
 import { InvalidInputError, NotFoundError } from "./publicdb.ts";
 import type { CaseSession, StoredDoc } from "./session.ts";
@@ -120,6 +129,75 @@ export async function documentCounts(
     }
   }
   return out;
+}
+
+/** Lines shown to the language model per entry, and their longest length (ADR 25). */
+const TIDY_CONTEXT_LINES = 3;
+const TIDY_CONTEXT_CHARS = 240;
+
+/**
+ * Who's who as "Tidy up" shows it to the language model (ADR 25): each entry's label, kind, real
+ * values, description, and a few original lines where it appears. Vault data: it goes only to the
+ * model the user set up under Finding names, and only if that model may have original text.
+ */
+export async function tidyEntries(s: CaseSession): Promise<TidyEntry[]> {
+  const context = new Map<string, string[]>();
+  for (const d of await allDocs(s)) {
+    const lines = d.original.split("\n");
+    for (const [role, at] of mentionsIn(d)) {
+      const got = context.get(role) ?? [];
+      for (const n of at) {
+        if (got.length >= TIDY_CONTEXT_LINES) break;
+        const line = (lines[n - 1] ?? "").replace(/\s+/g, " ").trim().slice(0, TIDY_CONTEXT_CHARS);
+        if (line && !got.includes(line)) got.push(line);
+      }
+      context.set(role, got);
+    }
+  }
+  return s.registry.list().map((e) => ({
+    role: e.role,
+    kind: e.kind,
+    values: [e.forms.full, e.forms.first, e.forms.surname, e.forms.title, ...e.aliases]
+      .filter((v): v is string => !!v)
+      .filter((v, i, all) => all.indexOf(v) === i),
+    description: e.description ? s.reidentify(e.description).text : null,
+    context: context.get(e.role) ?? [],
+  }));
+}
+
+/**
+ * Suggestions for tidying who's who (ADR 25): from rules always, and from the language model
+ * when one is set up. A model that can't be used or fails is reported in `llm.error`; the rules'
+ * suggestions still come back. Logged as a count only.
+ */
+export async function suggestTidy(
+  s: CaseSession,
+  opts: TidyOptions & { useLlm?: boolean } = {},
+): Promise<TidyResult> {
+  const entries = await tidyEntries(s);
+  const all = checkSuggestions(
+    { suggestions: ruleSuggestions(entries) },
+    s.registry,
+    "rule",
+  );
+  const llm = s.settings.llm;
+  const result: TidyResult = { suggestions: [], llm: { ran: false } };
+  if (opts.useLlm !== false && llm && llm.baseUrl.trim() && llm.model.trim() && entries.length) {
+    try {
+      all.push(...await llmSuggestions(llm, entries, s.registry, opts));
+      result.llm = { ran: true };
+    } catch (e) {
+      result.llm = { ran: false, error: e instanceof Error ? e.message : String(e) };
+    }
+  } else if (opts.useLlm !== false) {
+    result.llm = { ran: false, error: "No language model is set up under Finding names." };
+  }
+  result.suggestions = settle(all);
+  s.store.log("app", "entity_suggestions", {
+    suggestions: result.suggestions.length,
+    llm: result.llm.ran,
+  });
+  return result;
 }
 
 function getEntity(s: CaseSession, role: string): Entity {

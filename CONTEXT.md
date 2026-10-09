@@ -57,6 +57,13 @@ state, the code value is in `code`; the UI words come from `src/app/ui/model.js`
   blocks publishing until the user chooses).
 - **Leave as written**: the user's decision to keep a detected value in the text Claude sees. It
   needs a reason, kept in the vault document (ADR 6).
+- **Merge** (UI: "The same as another entry?"): fold one entry into another: every token of it
+  becomes the other's, and its values become the other's forms or other names (ADR 25).
+- **Stop replacing** (`removeEntity`): take an entry that identifies no one (a time of day) out of
+  who's who; its values are left as written, with a reason, in every document. Refused for a
+  safety-sensitive entry or a value another entry has (ADR 25).
+- **Tidy up who's who**: suggested merges, relationship labels and removals, from rules and the
+  language model under Finding names; each is accepted or not by the user (ADR 25).
 - **Re-identify**: swap tokens back to real values, in the app only.
 
 ## Documents

@@ -83,6 +83,11 @@ export function roleTokenRe(role: string): RegExp {
   return new RegExp(`\\{\\{${role}(\\.(?:first|surname|title))?\\}\\}`, "g");
 }
 
+/** Replace every token of `role` in `text` with what `to` gives for its form. */
+export function swapRoleTokens(text: string, role: string, to: (form: Form) => string): string {
+  return text.replace(roleTokenRe(role), (_m, f) => to(f ? f.slice(1) as Form : "full"));
+}
+
 const TITLE_RE = /^(Mr|Mrs|Ms|Miss|Mx|Dr|Prof|Master)\.?\s+(\S.*)$/i;
 
 const KIND_PREFIX: Record<EntityKind, string> = {
@@ -203,6 +208,13 @@ export function normaliseVariant(s: string): string {
 
 /** Split a person's full name into first and surname forms when it is unambiguous. */
 export function splitPersonName(full: string): Pick<EntityForms, "first" | "surname"> {
+  // Court forms and lists write "SURNAME, Given names" (ADR 25).
+  const comma = /^([^,]+),\s*([^,]+)$/.exec(full.replace(/\s+/g, " ").trim());
+  if (comma) {
+    const surname = comma[1].trim();
+    const first = comma[2].trim().split(" ")[0];
+    return surname && first ? { first, surname } : {};
+  }
   const parts = full.replace(/\s+/g, " ").trim().split(" ");
   if (parts.length < 2) return {};
   return { first: parts[0], surname: parts[parts.length - 1] };
@@ -369,6 +381,59 @@ export class EntityRegistry {
       }
     }
     return e;
+  }
+
+  /**
+   * Fold entity `from` into `into` (ADR 25): `from`'s values become `into`'s forms or other names,
+   * links and descriptions that named `from` name `into`, and `from` is gone. Returns, for each of
+   * `from`'s forms, the form of `into` its tokens become: the same form when the value matches one
+   * of `into`'s (or fills one it lacks), else `full` (the value is kept as another name, which
+   * renders as the full form, like any nickname).
+   */
+  merge(from: string, into: string): Record<Form, Form> {
+    const a = this.#entities.get(from);
+    const b = this.#entities.get(into);
+    if (!a) throw new Error(`No such role: ${from}`);
+    if (!b) throw new Error(`No such role: ${into}`);
+    if (a === b) throw new Error("An entry can't be merged into itself");
+    const map = { full: "full", first: "full", surname: "full", title: "full" } as Record<
+      Form,
+      Form
+    >;
+    // Compared without stray punctuation at either end ("OKAFOR," is "Okafor").
+    const norm = (v: string) => normaliseVariant(v).replace(/^[\s,.;:]+|[\s,.;:]+$/g, "");
+    const known = () => [
+      ...(["full", "first", "surname", "title"] as const)
+        .filter((f) => b.forms[f])
+        .map((f) => ({ f, v: norm(b.forms[f]!) })),
+      ...b.aliases.map((v) => ({ f: "full" as Form, v: norm(v) })),
+    ];
+    for (const f of ["full", "first", "surname", "title"] as const) {
+      const v = a.forms[f];
+      if (!v) continue;
+      const same = known().find((k) => k.v === norm(v));
+      if (same) map[f] = same.f;
+      else if (f !== "full" && b.kind === "person" && !b.forms[f]) {
+        b.forms[f] = v;
+        map[f] = f;
+      } else b.aliases.push(v);
+    }
+    for (const v of a.aliases) {
+      if (!known().some((k) => k.v === norm(v))) b.aliases.push(v);
+    }
+    if (a.safety) b.safety = true;
+    if (!b.relatedTo && a.relatedTo && a.relatedTo !== into) b.relatedTo = a.relatedTo;
+    if ((b.colour === undefined || b.colour === null) && typeof a.colour === "number") {
+      b.colour = a.colour;
+    }
+    const swap = (t: string) => swapRoleTokens(t, from, (f) => formatToken(into, map[f]));
+    if (!b.description && a.description) b.description = a.description;
+    this.#entities.delete(from);
+    for (const other of this.#entities.values()) {
+      if (other.relatedTo === from) other.relatedTo = other === b ? null : into;
+      if (other.description) other.description = swap(other.description);
+    }
+    return map;
   }
 
   remove(role: string): void {

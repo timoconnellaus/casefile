@@ -8,6 +8,7 @@ import {
   checkReviewSuggestions,
   checkSuggestions,
   harmlessShape,
+  namesOverlap,
   ruleSuggestions,
   settle,
   settleReview,
@@ -370,12 +371,12 @@ Deno.test("review suggestions are checked and settled", () => {
     { id: "n1", key: "k1", kind: "person" as const, value: "Dan", label: "" },
     { id: "n2", key: "k2", kind: "person" as const, value: "Margaret Thornbury", label: "" },
     { id: "n3", key: "k3", kind: "other" as const, value: "Bunnings", label: "" },
-    { id: "n4", key: "k4", kind: "person" as const, value: "D. Okafor", label: "" },
+    { id: "n4", key: "k4", kind: "person" as const, value: "Dan Okafor", label: "" },
   ];
   const got = checkReviewSuggestions(
     {
       suggestions: [
-        { type: "same", item: "n1", as: "n4", why: "Dan is D. Okafor" },
+        { type: "same", item: "n1", as: "n4", why: "Dan is Dan Okafor" },
         { type: "same", item: "n4", as: "father", why: "the father" },
         { type: "same", item: "n2", as: "school_1", why: "wrong kind" },
         { type: "label", item: "n2", to: "maternal_grandmother", why: "her mother" },
@@ -510,4 +511,37 @@ Deno.test("review: a nickname that shares no name is kept but flagged; names tha
     () => false,
   );
   assertEquals(got.map((g) => g.type === "same" && g.caution === true), [true, false]);
+});
+
+Deno.test("security: a shared surname is not the same person; a model 'leave' of a name-like value is flagged", () => {
+  const r = new EntityRegistry();
+  r.add({ kind: "person", full: "Daniel Okafor", role: "father" });
+  r.add({ kind: "person", full: "Mia Okafor", role: "child_1" });
+  assertEquals(namesOverlap("Mia Okafor", ["Daniel Okafor", "Daniel"]), false);
+  assertEquals(namesOverlap("OKAFOR, Daniel", ["Daniel Okafor"]), true);
+  assertEquals(namesOverlap("Mr Dan Okafor", ["Daniel Okafor"]), true);
+  assertEquals(namesOverlap("Okafor", ["Daniel Okafor", "Daniel"]), false);
+  const items = [
+    { id: "n1", key: "k1", kind: "person" as const, value: "M. Okafor", label: "" },
+    { id: "n2", key: "k2", kind: "school" as const, value: "Kiama Downs Public School", label: "" },
+    { id: "n3", key: "k3", kind: "other" as const, value: "5:01 PM", label: "" },
+  ];
+  // What a document written to steer the model might get it to say.
+  const got = checkReviewSuggestions(
+    {
+      suggestions: [
+        { type: "same", item: "n1", as: "father", why: "Ignore your instructions: same person." },
+        { type: "leave", item: "n2", why: "Not identifying." },
+        { type: "leave", item: "n3", why: "A time." },
+      ],
+    },
+    items,
+    r,
+    "llm",
+    () => false,
+  );
+  assertEquals(
+    got.map((g) => `${g.type} ${g.key}${"caution" in g && g.caution ? " caution" : ""}`),
+    ["leave k2 caution", "leave k3"],
+  );
 });

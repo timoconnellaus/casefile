@@ -1,7 +1,7 @@
 /**
  * casefile desktop app entry point.
  *
- *   deno task desktop   — build dist/casefile.app (scripts/build_desktop.ts; ADR 2, ADR 23). The
+ *   deno task desktop   — build dist/casefile.app (scripts/build_desktop.ts; ADR 2, ADR 24). The
  *                         copy in daily use comes from a signed GitHub release and updates itself.
  *   deno task dev       — a development run on :8218, opening only cases in .dev/ (ADR 22)
  *   deno task app       — the app in a browser at http://127.0.0.1:8217 (fallback)
@@ -40,7 +40,7 @@ if (import.meta.main) {
   if (build.version && bundle && await relaunchIfStale(bundle, build.version, config)) Deno.exit(0);
   await state.load();
   if (build.version) {
-    // The CLI from this same build, for Claude Code in the case folder (ADR 23).
+    // The CLI from this same build, for Claude Code in the case folder (ADR 24).
     const home = Deno.env.get("HOME");
     if (home) {
       await installBundledCli(build.version, { home, configDir: config }).catch((e) =>

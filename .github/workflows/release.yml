@@ -1,4 +1,4 @@
-# Desktop releases (ADR 23, docs/RELEASING.md). Every push to main that changes the app releases
+# Desktop releases (ADR 24, docs/RELEASING.md). Every push to main that changes the app releases
 # it, as the next version (scripts/release/next_version.ts: PATCH, or MINOR/MAJOR when a commit
 # says [minor]/[major]):
 #   build    (macOS): ci, build dist/casefile.app at that version, smoke-test it, zip it, make
@@ -67,7 +67,7 @@ jobs:
       - run: deno task ci
       - run: brew install bsdiff
       - run: deno task desktop
-      # Deno's launcher can't roll back a version that fails to start (ADR 23), so a build that
+      # Deno's launcher can't roll back a version that fails to start (ADR 24), so a build that
       # doesn't start, or doesn't know its version, is never published.
       - name: Smoke test the app
         run: |

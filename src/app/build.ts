@@ -1,5 +1,5 @@
 /**
- * Which copy of casefile is running (ADR 22, ADR 23).
+ * Which copy of casefile is running (ADR 22, ADR 24).
  *
  * A desktop build's version is `version` in deno.json as it was built (CI sets it from the
  * release tag), read from the copy embedded in this code: the version of the code that is

@@ -1,5 +1,5 @@
 /**
- * Update manifests for the desktop app (ADR 23), in the format `Deno.autoUpdate` reads:
+ * Update manifests for the desktop app (ADR 24), in the format `Deno.autoUpdate` reads:
  *
  *   latest.json = { signed: "<manifest JSON>", signature: "<base64 Ed25519 over signed>" }
  *   manifest    = { version, patches: { [fromVersion]: { name, sha256 } } }

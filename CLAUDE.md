@@ -13,7 +13,7 @@ Read `docs/PLAN.md`, `CONTEXT.md` and `docs/adr/` before changing behaviour.
 - Every write of document text to public.db goes through `CaseSession.publishedView` (via
   `publish`/`republish`), which runs the leak check (ADR 6).
 - **The user runs the desktop app** installed from this repo's GitHub releases
-  (`~/Applications/casefile.app`), which updates itself (ADR 23). Work in a worktree and try changes
+  (`~/Applications/casefile.app`), which updates itself (ADR 24). Work in a worktree and try changes
   with `deno task dev`. Never open the user's case, and never quit their app. Ship changes as
   described in "Shipping a change to the user" below.
 - Decisions that change the safety boundary, data formats or compliance behaviour need an ADR.

@@ -17,7 +17,7 @@ export interface AppConfig {
   lastCase?: string;
   /**
    * The desktop version that last opened each case (by folder). A case is backed up before a new
-   * version first opens it, since public.db migrations only go forward (ADR 23).
+   * version first opens it, since public.db migrations only go forward (ADR 24).
    */
   openedWith?: Record<string, string>;
   /**
@@ -51,7 +51,7 @@ export interface AppStateOptions {
   claudeCode?: ClaudeCodeEnv;
   /** Which copy of casefile this is, for `/api/status` (ADR 22). */
   build?: BuildInfo;
-  /** Desktop updates (ADR 23): whether one is ready. */
+  /** Desktop updates (ADR 24): whether one is ready. */
   updates?: Updates;
   /** Start the updated app (a new instance of the bundle); main.ts supplies it. */
   relaunch?: () => Promise<void>;
@@ -164,7 +164,7 @@ export class AppState {
   }
 
   /**
-   * Restart into the staged update (ADR 23): close the case as quitting does (its writes finish,
+   * Restart into the staged update (ADR 24): close the case as quitting does (its writes finish,
    * its lock is released), then start the new version. The user unlocks the case again.
    */
   async restartForUpdate(): Promise<void> {
@@ -177,7 +177,7 @@ export class AppState {
 
   /**
    * The first time this version opens `root`, back the case up first: opening can migrate
-   * public.db, and an earlier version can't open it after that (ADR 23). Only a desktop build has
+   * public.db, and an earlier version can't open it after that (ADR 24). Only a desktop build has
    * a version; the case must not be open (the backup takes its lock).
    */
   async #backupBeforeNewVersion(root: string): Promise<void> {

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Install casefile (ADR 23). CI publishes this with each release, with __REPO__ filled in:
+# Install casefile (ADR 24). CI publishes this with each release, with __REPO__ filled in:
 #   curl -fsSL https://github.com/OWNER/REPO/releases/latest/download/install.sh | sh
 # Downloaded with curl, the app carries no quarantine flag, so macOS opens it without asking for
 # a developer signature. Later versions arrive as signed patches inside the app.

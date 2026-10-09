@@ -1,5 +1,5 @@
 /**
- * The upgrade backup made before a new version of the app first opens a case (ADR 22, ADR 23).
+ * The upgrade backup made before a new version of the app first opens a case (ADR 22, ADR 24).
  *
  * public.db migrations only go forward, so after a release the way back to the earlier build is
  * this copy. It is made while holding the case-in-use lock, so neither the app nor the seed can

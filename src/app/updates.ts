@@ -1,5 +1,5 @@
 /**
- * Desktop updates from signed GitHub releases (ADR 23).
+ * Desktop updates from signed GitHub releases (ADR 24).
  *
  * `Deno.autoUpdate` (deno desktop's runtime) fetches `latest.json` from the latest release once
  * at start and then hourly. The manifest must be signed with the Ed25519 key in update_config.ts;
@@ -107,7 +107,7 @@ function indexOf(hay: Uint8Array, needle: Uint8Array): number {
 
 /**
  * Deno 2.9.7's launcher swaps a staged update in at launch but still runs the runtime it had
- * already loaded: the new version only runs from the launch after (seen in testing; ADR 23). So
+ * already loaded: the new version only runs from the launch after (seen in testing; ADR 24). So
  * right after a swap (`.backup` is there), if the runtime on disk is newer than this code, start
  * again at once, before any window opens, so "Restart to update" takes one restart. A marker in
  * the config folder stops this repeating if the runtime on disk still doesn't start as itself.

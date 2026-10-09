@@ -1,4 +1,4 @@
-/** The version a push to main is released as (ADR 23, scripts/release/next_version.ts). */
+/** The version a push to main is released as (ADR 24, scripts/release/next_version.ts). */
 import { assertEquals } from "@std/assert";
 import { bump, bumpOf, latest } from "../scripts/release/next_version.ts";
 

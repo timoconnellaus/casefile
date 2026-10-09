@@ -1,5 +1,5 @@
 /**
- * Where the desktop app gets its updates, and the key they must be signed with (ADR 23). Both are
+ * Where the desktop app gets its updates, and the key they must be signed with (ADR 24). Both are
  * filled in once, when the GitHub repository is set up (docs/RELEASING.md). While either is null
  * the app never checks for updates.
  */

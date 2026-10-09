@@ -1,6 +1,6 @@
 #!/usr/bin/env -S deno run --allow-read --allow-run
 /**
- * The version to release a push to main as (ADR 23): the last `vMAJOR.MINOR.PATCH` tag, bumped.
+ * The version to release a push to main as (ADR 24): the last `vMAJOR.MINOR.PATCH` tag, bumped.
  * PATCH by default; MINOR or MAJOR when a commit since the last release says `[minor]` or
  * `[major]` (in its title or body, e.g. the PR title). With no release yet, deno.json's `version`.
  * Prints nothing when this commit is already released (a re-run), so the workflow skips.

@@ -1,4 +1,4 @@
-# 23. Desktop updates from signed GitHub releases
+# 24. Desktop updates from signed GitHub releases
 
 Date: 2026-10-09
 Status: Accepted. Supersedes ADR 22's release script and its restart amendment; ADR 22's dev copy,

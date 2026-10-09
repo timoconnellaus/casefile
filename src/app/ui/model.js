@@ -455,7 +455,7 @@ export function buildNote(build) {
   return `casefile ${build.version}.`;
 }
 
-/** The update bar (ADR 23). */
+/** The update bar (ADR 24). */
 export function updateReadyNote(version) {
   return `casefile ${version} is ready. Restart to update.`;
 }

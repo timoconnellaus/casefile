@@ -1,5 +1,5 @@
 /**
- * Desktop updates (ADR 23): the signed manifest, the update bar's restart, the backup before a new
+ * Desktop updates (ADR 24): the signed manifest, the update bar's restart, the backup before a new
  * version first opens a case, and the CLI the app carries. SYNTHETIC data only (ADR 11).
  */
 import { assert, assertEquals, assertFalse, assertRejects } from "@std/assert";

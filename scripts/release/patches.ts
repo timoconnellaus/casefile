@@ -1,6 +1,6 @@
 #!/usr/bin/env -S deno run --allow-read --allow-write --allow-run --allow-env
 /**
- * Make update patches from earlier releases to this one (ADR 23). Run by CI on the macOS runner
+ * Make update patches from earlier releases to this one (ADR 24). Run by CI on the macOS runner
  * after `deno task desktop`:
  *
  *   deno run … scripts/release/patches.ts --version 0.3.0 --out out \

@@ -1,6 +1,6 @@
 #!/usr/bin/env -S deno run --allow-read --allow-write --allow-env
 /**
- * Make and sign latest.json for a release (ADR 23). Run by CI in the `release` environment:
+ * Make and sign latest.json for a release (ADR 24). Run by CI in the `release` environment:
  *
  *   CASEFILE_UPDATE_SIGNING_KEY=… deno task release:manifest --version 0.3.0 --dir out \
  *     --patch 0.2.0=patch-0.2.0-to-0.3.0.bin --patch 0.1.0=patch-0.1.0-to-0.3.0.bin

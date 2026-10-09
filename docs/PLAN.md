@@ -150,7 +150,7 @@ These are deliberate (REBUILD-PLAN section 3). The UI says so honestly rather th
 | Topic | Decision |
 |---|---|
 | User | Single user, self-represented party |
-| Packaging | Desktop app (`deno desktop`), self-updating from signed GitHub releases (ADR 23) |
+| Packaging | Desktop app (`deno desktop`), self-updating from signed GitHub releases (ADR 24) |
 | Stack | All TypeScript (Deno) |
 | NER | Own AU rules + transformers.js (pinned) + optional LLM pass |
 | Inputs | Plain text and Markdown; paste / files / folder / drag-drop |
@@ -163,7 +163,7 @@ These are deliberate (REBUILD-PLAN section 3). The UI says so honestly rather th
 
 ## Using it while it is being built
 
-The user runs the desktop app, installed from this repo's GitHub releases. It updates itself: when a new release is out it shows "casefile X.Y.Z is ready — Restart to update" (ADR 23, [RELEASING.md](RELEASING.md)). Work happens in worktrees.
+The user runs the desktop app, installed from this repo's GitHub releases. It updates itself: when a new release is out it shows "casefile X.Y.Z is ready — Restart to update" (ADR 24, [RELEASING.md](RELEASING.md)). Work happens in worktrees.
 
 - **Develop:** in a worktree, run `deno task seed:dev` once, then `deno task dev` (http://127.0.0.1:8218, marked "dev"). It opens only cases inside `.dev/`.
 - **Release:** open a PR; once GitHub CI is green and it is merged, the push to `main` releases it at the next version. The release workflow builds, smoke-tests, makes update patches, then signs and publishes (after the owner's approval, if the `release` environment requires it). A new version backs the case up to `~/Library/Application Support/casefile/backups/` (Claude Code can't read there) before it first opens it, and installs its own `casefile` CLI to `~/.local/bin`.

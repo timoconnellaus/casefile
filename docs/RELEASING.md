@@ -3,7 +3,7 @@
 The user runs the desktop app (`~/Applications/casefile.app`). It updates itself from this repo's
 GitHub releases: it checks the latest release when it starts and then hourly, downloads a small
 signed patch, and shows **"casefile X.Y.Z is ready — Restart to update"**. The design and its safety
-reasoning are in [ADR 23](adr/0023-desktop-updates-from-signed-github-releases.md).
+reasoning are in [ADR 24](adr/0024-desktop-updates-from-signed-github-releases.md).
 
 ## Shipping a change
 

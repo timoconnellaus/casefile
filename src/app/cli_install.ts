@@ -1,7 +1,7 @@
 /**
  * The desktop app carries the `casefile` CLI built from the same commit (`--include bin/casefile`)
  * and installs it to `~/.local/bin` the first time each version starts, so Claude Code in the case
- * folder always runs a CLI that matches the app's public.db (ADR 23).
+ * folder always runs a CLI that matches the app's public.db (ADR 24).
  */
 import { join } from "@std/path";
 

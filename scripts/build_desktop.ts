@@ -1,6 +1,6 @@
 #!/usr/bin/env -S deno run --allow-read --allow-write --allow-env --allow-run
 /**
- * Build dist/casefile.app (ADR 2, ADR 23): `deno task desktop`.
+ * Build dist/casefile.app (ADR 2, ADR 24): `deno task desktop`.
  *
  * - Builds the CLI first and carries it in the app (`--include bin/casefile`); the app installs
  *   it on first start of each version (src/app/cli_install.ts).

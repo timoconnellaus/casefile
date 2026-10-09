@@ -27,7 +27,7 @@ async function fetchToCheck() {
  * @param {HTMLElement} root
  */
 /**
- * A newer casefile is downloaded and waiting (ADR 23): offer to restart into it. Restarting closes
+ * A newer casefile is downloaded and waiting (ADR 24): offer to restart into it. Restarting closes
  * the case, so it asks first; the new version asks for the passphrase. Also says once if the last
  * update failed to start and casefile went back.
  */

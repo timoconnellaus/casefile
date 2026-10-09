@@ -453,6 +453,32 @@ export function inDateRange(date, from, to) {
   return (!from || end >= from) && (!to || start <= to);
 }
 
+/** A backup older than this many days is shown in amber (ADR 29). */
+export const BACKUP_OVERDUE_DAYS = 14;
+
+/**
+ * "Last backup: N days ago" for Getting started and Settings (ADR 29), counted in calendar days
+ * on this computer. `overdue` (shown in amber) when there is no backup or the last one is more
+ * than 14 days old. No pop-up: these words are the whole reminder.
+ * @param {string|null|undefined} lastAt @param {number|Date} [now]
+ * @returns {{text: string, overdue: boolean, days: number|null}}
+ */
+export function backupNote(lastAt, now = Date.now()) {
+  const at = lastAt ? new Date(lastAt) : null;
+  if (!at || Number.isNaN(at.getTime())) {
+    return { text: "No backup yet", overdue: true, days: null };
+  }
+  const day = (d) => {
+    const x = new Date(d);
+    return Date.UTC(x.getFullYear(), x.getMonth(), x.getDate());
+  };
+  const days = Math.max(0, Math.round((day(now) - day(at)) / 86_400_000));
+  const text = days === 0
+    ? "Last backup: today"
+    : `Last backup: ${days} ${days === 1 ? "day" : "days"} ago`;
+  return { text, overdue: days > BACKUP_OVERDUE_DAYS, days };
+}
+
 /** Idle-lock note for the header: "Locks after 30 min idle" / "Locks after 1 hour idle". */
 export function idleNote(minutes) {
   const m = Number(minutes) || 30;

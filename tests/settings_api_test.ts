@@ -229,9 +229,15 @@ Deno.test("Getting started: steps come from records", async () => {
   assertEquals(st.steps[4].canOpenTerminal, true);
   assert((await t.state.session!.vault.list()).includes("start"));
 
-  // Step 6: backup is not built yet.
-  assertEquals(st.steps[5], { id: "backup", done: false, available: false });
+  // Step 6: no backup yet (ADR 29); it is done once one is made.
+  assertEquals(st.steps[5], { id: "backup", done: false, lastAt: null });
   assertEquals(st.done, 5);
+  await Deno.mkdir(join(bin, "usb"));
+  const b = await t.user.post("/api/backup", { folder: join(bin, "usb") });
+  assertEquals(b.status, 200, b.text);
+  st = await steps();
+  assertEquals(st.steps[5], { id: "backup", done: true, lastAt: b.json.lastAt });
+  assertEquals(st.done, 6);
   await t.user.post("/api/start/claude-opened", { done: false });
   assertEquals((await steps()).steps[4].done, false);
   t.state.lock();

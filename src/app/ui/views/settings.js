@@ -3,7 +3,7 @@
 // checks, lock and shortcuts, this case, backup and recovery, and the passphrase.
 import { h } from "../dom.js";
 import { api, ApiError, errorText } from "../lib.js";
-import { buildNote, updateCheckNote } from "../model.js";
+import { backupNote, buildNote, updateCheckNote } from "../model.js";
 import {
   announce,
   Callout,
@@ -1257,6 +1257,7 @@ export default async function view(main, _params, ctx) {
   /** "Back up now": the folder is asked each time, filled in with the last one (ADR 29). */
   const BackupRow = () => {
     const b = S.backup ?? { lastAt: null, folder: null };
+    const note = backupNote(b.lastAt);
     const folder = h("input", {
       id: "set-bk-dir",
       class: "mono",
@@ -1274,15 +1275,24 @@ export default async function view(main, _params, ctx) {
     );
     return h(
       "div",
-      { class: "status-row" },
-      h("span", { class: "status-row-lead" }, b.lastAt ? Icon("check") : Icon("dot")),
+      { class: `status-row${note.overdue ? " status-row--attention" : ""}` },
+      h("span", { class: "status-row-lead" }, note.overdue ? Icon("dot") : Icon("check")),
       h(
         "span",
         { class: "status-row-text" },
         h(
           "span",
           { class: "status-row-title hstack" },
-          b.lastAt ? `Last backup: ${whenDay(b.lastAt, false)}` : Flag("No backup yet"),
+          h("span", { class: note.overdue ? "attn-text" : "" }, note.text),
+          b.lastAt
+            ? h(
+              "span",
+              { class: "muted" },
+              whenDay(b.lastAt, false) === "today"
+                ? `· at ${clock(b.lastAt)}`
+                : `· ${whenDay(b.lastAt, false)} at ${clock(b.lastAt)}`,
+            )
+            : null,
         ),
         h(
           "span",

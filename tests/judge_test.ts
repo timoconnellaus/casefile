@@ -241,9 +241,7 @@ Deno.test("every question has its fields, a local recipe and a threshold for eve
       assert(t.value > 0 && t.value < 1, `${id}/${b}`);
     }
   }
-  // Local and the language model were calibrated; Jev not yet (no key in this environment).
-  assert(calibrated("local") && calibrated("llm"));
-  assert(!calibrated("jev"));
+  assert(calibrated("local") && calibrated("llm") && calibrated("jev"));
 });
 
 Deno.test("policy: higher scores mean flag, and an origin hint only flags when it is stricter", () => {

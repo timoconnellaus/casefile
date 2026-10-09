@@ -146,6 +146,7 @@ export interface Threshold {
 
 const LOCAL_MODEL = "Xenova/nli-deberta-v3-xsmall@2a4f614 (q8)";
 const LLM_MODEL = "qwen/qwen3.6-35b-a3b in LM Studio, reasoning_effort none";
+const JEV = "jev-1.13.0";
 
 /**
  * Thresholds per question and backend, each chosen by `scripts/judge-eval.ts` on
@@ -169,7 +170,10 @@ export const THRESHOLDS: Record<QuestionId, Record<JudgeBackendId, Threshold>> =
       value: 0.5,
       calibration: { date: "2026-10-09", model: LLM_MODEL, n: 36, precision: 1, recall: 1 },
     },
-    jev: { value: 0.5, calibration: null },
+    jev: {
+      value: 0.475,
+      calibration: { date: "2026-10-09", model: JEV, n: 36, precision: 1, recall: 1 },
+    },
   },
   fair_reading: {
     local: {
@@ -180,7 +184,10 @@ export const THRESHOLDS: Record<QuestionId, Record<JudgeBackendId, Threshold>> =
       value: 0.525,
       calibration: { date: "2026-10-09", model: LLM_MODEL, n: 28, precision: 0.93, recall: 0.93 },
     },
-    jev: { value: 0.5, calibration: null },
+    jev: {
+      value: 0.79,
+      calibration: { date: "2026-10-09", model: JEV, n: 28, precision: 1, recall: 1 },
+    },
   },
   origin_hint: {
     local: {
@@ -191,7 +198,12 @@ export const THRESHOLDS: Record<QuestionId, Record<JudgeBackendId, Threshold>> =
       value: 0.495,
       calibration: { date: "2026-10-09", model: LLM_MODEL, n: 18, precision: 1, recall: 0.83 },
     },
-    jev: { value: 0.5, calibration: null },
+    // Low because Jev's scores are: the father's affidavit scored 0.09 and the user's own text
+    // messages 0.06, so the margin is thin. A false flag only asks the user to look again.
+    jev: {
+      value: 0.075,
+      calibration: { date: "2026-10-09", model: JEV, n: 18, precision: 1, recall: 1 },
+    },
   },
 };
 

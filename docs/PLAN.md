@@ -85,7 +85,7 @@ These are deliberate (REBUILD-PLAN section 3). The UI says so honestly rather th
 | Attaching original files as annexures | Only PDFs keep their original (ADR 23); exports don't attach files yet | Annexure marks work (ADR 21); the user attaches the originals when filing |
 | `.docx` / PDF export | No approved dependency; zip and docx generation is unreviewed surface | "Export for Word (.rtf)"; to make a PDF, open it in Word and Save as PDF |
 | Encrypted single-file backup and restore | The restore path is the risky part and needs its own ADR and tests | Getting started lists backup as not available yet; copy the whole case folder while casefile is closed. The recovery key **is** built |
-| Judgement checks beyond the three built (direct quote, law to check), a quasi-identifier pass, Jev calibration | Not built; calibrating Jev needs a TypeSafe key and is billed | Extra checks ask three questions; Jev's thresholds are a neutral 0.5 and Settings says it is not tuned yet (ADR 14 amendment) |
+| Judgement checks beyond the three built (direct quote, law to check), a quasi-identifier pass | Not built | Extra checks ask three questions (ADR 14 amendment) |
 | Merging two people | A large token rewrite across documents, notes and drafts | Button hidden; the People screen says to rename or add the other spelling as a nickname |
 | Light theme | Contrast is specified and tested for dark only | Dark only (ADR 20) |
 | "My affidavit sworn [date], para 4" citations | Not built in W3-1 | Citations of unmarked documents become "Title, line N" |

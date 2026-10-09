@@ -180,3 +180,37 @@ a.doc-cited .doc-cited-title {
 .doc-origin-confirm .confirmbar-text {
   flex-basis: 100%;
 }
+
+/* The mentions bar: stays at the bottom of the window while a key entry is pinned. */
+.doc-finder {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-5);
+  border-top: 1px solid var(--line);
+  background: var(--panel-2);
+}
+
+.doc-finder[hidden] {
+  display: none;
+}
+
+.doc-finder-label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.doc-finder-pos {
+  color: var(--muted);
+  font-size: var(--fs-md);
+}
+
+.doc-text .is-current {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}

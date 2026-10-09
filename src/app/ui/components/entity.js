@@ -220,9 +220,12 @@ const HOVER_DELAY = 150;
 /**
  * Link every element with data-role inside `root`: hover (after 150 ms) or focus highlights all
  * occurrences and dims the rest to 60%; click or Enter pins. Returns {pin, clear, destroy}.
+ * `onPin(role, el)` is called whenever the pinned role changes (null when cleared), with the
+ * element that was clicked to pin it.
  * @param {HTMLElement} root
+ * @param {{onPin?: (role: string|null, el: Element|null) => void}} [opts]
  */
-export function linkEntities(root) {
+export function linkEntities(root, opts = {}) {
   let hover = null;
   let pinned = null;
   let timer;
@@ -239,9 +242,10 @@ export function linkEntities(root) {
     for (const b of root.querySelectorAll("[data-key-clear]")) b.hidden = !pinned;
   };
   const roleOf = (t) => (t instanceof Element ? t.closest("[data-role]") : null);
-  const setPin = (role) => {
+  const setPin = (role, el = null) => {
     pinned = pinned === role ? null : role;
     apply();
+    opts.onPin?.(pinned, el);
   };
 
   const onOver = (e) => {
@@ -282,20 +286,22 @@ export function linkEntities(root) {
       pinned = null;
       hover = null;
       apply();
+      opts.onPin?.(null, null);
       return;
     }
     const el = roleOf(e.target);
-    if (el) setPin(el.dataset.role);
+    if (el) setPin(el.dataset.role, el);
   };
   const onKey = (e) => {
     const el = roleOf(e.target);
     if (!el || el.tagName === "BUTTON") return; // buttons already click on Enter/Space
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
-      setPin(el.dataset.role);
+      setPin(el.dataset.role, el);
     } else if (e.key === "Escape" && pinned) {
       pinned = null;
       apply();
+      opts.onPin?.(null, null);
     }
   };
 
@@ -309,11 +315,13 @@ export function linkEntities(root) {
     pin(role) {
       pinned = role;
       apply();
+      opts.onPin?.(pinned, null);
     },
     clear() {
       pinned = null;
       hover = null;
       apply();
+      opts.onPin?.(null, null);
     },
     destroy() {
       clearTimeout(timer);

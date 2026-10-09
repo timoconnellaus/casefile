@@ -35,22 +35,26 @@ scripts/cloud-setup.sh   # setup script for a Claude Code cloud environment (pas
 
 ## Shipping a change to the user
 
+The repo is public (github.com/timoconnellaus/casefile). The private history before it is kept
+locally as the tag `archive/pre-public`: never merge, rebase onto or push anything containing it (a
+local pre-push hook refuses), and never push `use-*` tags.
+
 When a change is finished and the user wants it in their app, do all of this without asking how:
 
-1. In your worktree: bring the branch up to date with `main` and make `deno task ci` pass. Try the
-   change with `deno task seed:dev` (once) and `deno task dev` (port 8218, `.dev/` cases only), with
-   synthetic data only.
+1. In your worktree, on a branch from `origin/main` (`git fetch origin` first): bring it up to date
+   with `origin/main` and make `deno task ci` pass. Try the change with `deno task seed:dev` (once)
+   and `deno task dev` (port 8218, `.dev/` cases only), with synthetic data only.
 2. If the public.db schema changed: bump `SCHEMA_VERSION`, add a migration, then run
    `UPDATE_SCHEMA_FIXTURE=1 deno task test tests/schema_fixtures_test.ts` and commit
    `tests/fixtures/schemas/`. Never edit an older `vN.sql`.
-3. Merge in the main checkout:
-   `git -C "$(git rev-parse --path-format=absolute --git-common-dir)/.." merge --no-ff <branch> -m "Merge v3 <topic>: <what>"`.
-   The main checkout must be on `main` with nothing uncommitted. Another session may have merged
-   since you last looked: re-run ci if `main` moved.
-4. Release, from the main checkout: `deno task release`. It runs ci, backs up the case into the
-   app's own folder (Claude Code can't read it), installs the CLI to `~/.local/bin`, tags
-   `use-YYYY-MM-DD-N`, then restarts the running app into the release. The case stays open and the
-   browser stays signed in. No need to ask the user to quit anything.
+3. Push and open a pull request: `git push -u origin <branch>`, then `gh pr create --fill`. GitHub
+   runs `deno task ci` on it. It is merged on GitHub once green, by the user or by
+   `/loop /babysitter`. Don't merge into the local `main` by hand.
+4. After the PR is merged, release from the main checkout: `git pull --ff-only`, then
+   `deno task release`. It runs ci, backs up the case into the app's own folder (Claude Code can't
+   read it), installs the CLI to `~/.local/bin`, tags `use-YYYY-MM-DD-N`, then restarts the running
+   app into the release. The case stays open and the browser stays signed in. No need to ask the
+   user to quit anything.
 5. Tell the user it's live and to click **Reload** on the banner the page shows. Pass on any `!`
    lines the release printed. If it says the generated CLAUDE.md or settings changed, they restore
    them in Settings → Claude Code in this folder.

@@ -52,7 +52,8 @@ jobs:
   build:
     needs: version
     if: needs.version.outputs.version != ''
-    runs-on: macos-14
+    # Namespace (namespace.so) Apple-silicon runner, profile "casefile-macos" (ADR 24 amendment).
+    runs-on: namespace-profile-casefile-macos
     env:
       GH_TOKEN: ${{ github.token }}
       VERSION: ${{ needs.version.outputs.version }}

@@ -16,7 +16,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: denoland/setup-deno@v2
         with:
-          deno-version: v2.9.2
+          deno-version: v2.9.7
       - name: Cache dependencies
         run: deno cache --frozen src/cli/main.ts src/app/main.ts scripts/seed.ts tests/*.ts
       - name: fmt check, lint, type check, tests

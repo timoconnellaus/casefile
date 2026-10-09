@@ -28,6 +28,7 @@ deno task build:cli  # compile bin/casefile (--deny-net)
 deno task seed:dev   # build the CANON case in .dev/canon for deno task dev
 deno task dev        # a development copy at http://127.0.0.1:8218; opens cases only in .dev/
 deno task app        # the app in a browser at http://127.0.0.1:8217 (fallback; not the user's copy)
+deno task browsercheck   # every screen in headless Chromium on a fresh CANON case (own port; not in ci)
 deno task desktop    # build dist/casefile.app (Apple silicon, Deno >= 2.9.5; CI does this for releases)
 deno task seed --force   # build the synthetic CANON case (see scripts/seed.ts)
 scripts/cloud-setup.sh   # setup script for a Claude Code cloud environment (paste into its config; keep it current)

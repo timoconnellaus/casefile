@@ -438,6 +438,21 @@ export function formatDay(iso, short = false) {
   return `${Number(m[3])} ${short ? month.slice(0, 3) : month} ${m[1]}`;
 }
 
+/**
+ * Whether a document date falls in a from/to range (both `YYYY-MM-DD`, either may be empty). A
+ * partial date ("2025-03", "2025") covers its whole month or year and matches if any of it is in
+ * the range. With a range set, a document with no date (or an unreadable one) does not match.
+ * @param {string|null|undefined} date @param {string} from @param {string} to
+ */
+export function inDateRange(date, from, to) {
+  if (!from && !to) return true;
+  const m = /^(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?/.exec(String(date ?? ""));
+  if (!m) return false;
+  const start = `${m[1]}-${m[2] ?? "01"}-${m[3] ?? "01"}`;
+  const end = `${m[1]}-${m[2] ?? "12"}-${m[3] ?? "31"}`;
+  return (!from || end >= from) && (!to || start <= to);
+}
+
 /** Idle-lock note for the header: "Locks after 30 min idle" / "Locks after 1 hour idle". */
 export function idleNote(minutes) {
   const m = Number(minutes) || 30;

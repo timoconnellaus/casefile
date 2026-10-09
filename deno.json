@@ -14,6 +14,7 @@
     "app": "deno run --allow-read --allow-write --allow-env --allow-net --allow-ffi --allow-sys --allow-run=open src/app/main.ts",
     "dev": "CASEFILE_DEV_CASES=.dev CASEFILE_CONFIG_DIR=.dev/canon.config CASEFILE_PORT=8218 deno run --allow-read --allow-write --allow-env --allow-net --allow-ffi --allow-sys --allow-run=open src/app/main.ts",
     "judge-eval": "deno run --env-file=.env --allow-read --allow-write --allow-env --allow-ffi --allow-sys --allow-net=127.0.0.1,localhost,huggingface.co,api.typesafe.ai scripts/judge-eval.ts",
+    "browsercheck": "deno run --allow-read --allow-write --allow-env --allow-net --allow-ffi --allow-sys --allow-run scripts/browsercheck.ts",
     "seed:dev": "deno run --allow-read --allow-write --allow-env --allow-ffi --allow-sys scripts/seed.ts --dir .dev/canon --force",
     "desktop": "deno run --allow-read --allow-write --allow-env --allow-run scripts/build_desktop.ts",
     "release:keygen": "deno run --allow-read --allow-write scripts/release/keygen.ts",
@@ -28,7 +29,8 @@
     "@std/cli": "jsr:@std/cli@^1",
     "@huggingface/transformers": "npm:@huggingface/transformers@^3",
     "unpdf": "npm:unpdf@~1.8.1",
-    "docx": "npm:docx@9.7.2"
+    "docx": "npm:docx@9.7.2",
+    "playwright": "npm:playwright@1.56.1"
   },
   "fmt": {
     "lineWidth": 100,
@@ -50,6 +52,7 @@
     "bin/",
     "dist/",
     ".claude/",
-    ".dev/"
+    ".dev/",
+    ".browsercheck/"
   ]
 }

@@ -133,6 +133,8 @@
 .doc-cited {
   display: flex;
   flex-direction: column;
+  /* Left-aligned wherever it is listed (the stand-alone link rule would centre it). */
+  align-items: flex-start;
   gap: 2px;
   padding: 6px var(--sp-2);
   border-radius: var(--r-sm);

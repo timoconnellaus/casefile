@@ -14,5 +14,8 @@ dist/
 # deno task dev / seed:dev (synthetic CANON case and its config)
 .dev/
 
+# deno task browsercheck screenshots
+.browsercheck/
+
 # Written by deno task release in the checkout in daily use (ADR 22)
 release.json

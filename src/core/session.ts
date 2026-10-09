@@ -29,6 +29,7 @@ import {
   legacySensitivity,
   type LogCheck,
   type LogProblem,
+  type LogProblemAck,
   type Origin,
   originFromStored,
   type ParagraphRow,
@@ -135,6 +136,11 @@ export interface CaseSettings {
    * drop one; the log check reports them from then on.
    */
   logProblems?: LogProblem[];
+  /**
+   * The user's acknowledgements of recorded log problems (ADR 28), oldest first. Kept by the
+   * session like `logProblems`, and only ever added to.
+   */
+  logProblemAcks?: LogProblemAck[];
   /** Before `logProblems`: a lost head (read as a `head_missing`/`head_damaged` problem). */
   logHeadLost?: { at: string; reason: "missing" | "damaged"; kept?: string | null };
   /** Lock after this many minutes idle (default 30). */
@@ -505,6 +511,28 @@ function loadLogProblems(stored: CaseSettings | undefined): LogProblem[] {
   return out;
 }
 
+/** The acknowledgements a stored settings object records (ADR 28). */
+function loadLogProblemAcks(stored: CaseSettings | undefined): LogProblemAck[] {
+  return Array.isArray(stored?.logProblemAcks)
+    ? stored.logProblemAcks.filter((a) =>
+      a && typeof a.at === "string" && typeof a.problemAt === "string" &&
+      typeof a.kind === "string"
+    )
+    : [];
+}
+
+/** The acknowledgement of `p`, if the user made one (ADR 28). */
+export function ackOf(p: LogProblem, acks: LogProblemAck[]): LogProblemAck | undefined {
+  return acks.find((a) => a.problemAt === p.at && a.kind === p.kind);
+}
+
+/** Thrown when a log problem cannot be acknowledged: no such problem, or already acknowledged. */
+export class LogProblemAckError extends Error {
+  constructor(message: string, readonly status: 404 | 409) {
+    super(message);
+  }
+}
+
 /** What a recorded log problem means, in plain words (shown by the log check). */
 export function logProblemText(p: LogProblem): string {
   const on = `on ${p.at.slice(0, 10)}`;
@@ -647,6 +675,7 @@ export class CaseSession {
     s.#adoptLock(lock, id);
     try {
       s.#logProblems = loadLogProblems(stored);
+      s.#logProblemAcks = loadLogProblemAcks(stored);
       // Without its settings the vault can't say whether the log was already chained; a case made
       // by any build that chains always has them, so their loss is itself a problem.
       if (!stored) await s.#recordLogProblem({ kind: "settings_missing" });
@@ -809,6 +838,8 @@ export class CaseSession {
 
   /** Problems recorded for this case's log; only ever added to (see `CaseSettings.logProblems`). */
   #logProblems: LogProblem[] = [];
+  /** The user's acknowledgements of them (ADR 28); only ever added to. */
+  #logProblemAcks: LogProblemAck[] = [];
   /** Head problems found while opening, logged once the chain is on. */
   #loggedNow: LogProblem[] = [];
 
@@ -842,6 +873,31 @@ export class CaseSession {
     }
   }
 
+  /**
+   * The user acknowledges recorded log problem `n` (1 = the oldest) (ADR 28). The problem stays
+   * recorded and reported, and the log check is still not intact; the acknowledgement is kept in
+   * the vault and logged. Refused (LogProblemAckError) for no such problem or one already
+   * acknowledged.
+   */
+  async acknowledgeLogProblem(n: number): Promise<LogProblem> {
+    const p = Number.isSafeInteger(n) && n >= 1 ? this.#logProblems[n - 1] : undefined;
+    if (!p) throw new LogProblemAckError("No such log problem", 404);
+    if (ackOf(p, this.#logProblemAcks)) {
+      throw new LogProblemAckError("That log problem is already acknowledged", 409);
+    }
+    const ack: LogProblemAck = { at: new Date().toISOString(), problemAt: p.at, kind: p.kind };
+    this.#logProblemAcks.push(ack);
+    // The vault first: a logged acknowledgement the vault doesn't hold would claim too much.
+    await this.saveSettings();
+    this.store.log("user", "log_problem_acknowledged", {
+      problem: n,
+      kind: p.kind,
+      found: p.at,
+      ...(p.headId !== undefined ? { after: p.headId } : {}),
+    });
+    return { ...p, acknowledged: { at: ack.at } };
+  }
+
   #queueHead(id: number, chain: string) {
     this.#pendingHead = { id, chain };
     this.#headWrite = this.#headWrite.then(async () => {
@@ -869,14 +925,20 @@ export class CaseSession {
       };
     }
     if (this.#logProblems.length) {
-      const first = this.#logProblems[0];
+      const recorded = this.#logProblems.map((p) => {
+        const ack = ackOf(p, this.#logProblemAcks);
+        return { ...p, ...(ack ? { acknowledged: { at: ack.at } } : {}) };
+      });
+      // The warning leads with what the user hasn't acknowledged yet (ADR 28).
+      const first = recorded.find((p) => !p.acknowledged) ?? recorded[0];
       const lost = this.#logProblems.find((p) =>
         p.kind === "head_missing" || p.kind === "head_damaged"
       );
       return {
         ...check,
         intact: false,
-        recorded: this.#logProblems.map((p) => ({ ...p })),
+        recorded,
+        ...(check.problem ? { chainProblem: check.problem } : {}),
         ...(lost
           ? {
             headLost: { at: lost.at, reason: lost.kind === "head_damaged" ? "damaged" : "missing" },
@@ -900,7 +962,13 @@ export class CaseSession {
     // The log's recorded problems come from the session, never from `settings`, so nothing that
     // changes or replaces the settings object can drop one.
     const { logHeadLost: _old, ...rest } = this.settings;
-    this.settings = { ...rest, logProblems: this.#logProblems.map((p) => ({ ...p })) };
+    this.settings = {
+      ...rest,
+      logProblems: this.#logProblems.map((p) => ({ ...p })),
+      ...(this.#logProblemAcks.length
+        ? { logProblemAcks: this.#logProblemAcks.map((a) => ({ ...a })) }
+        : {}),
+    };
     await this.vault.writeJson("settings", this.settings);
   }
 
@@ -982,6 +1050,7 @@ export class CaseSession {
         | "logChained"
         | "logHeadLost"
         | "logProblems"
+        | "logProblemAcks"
       >
     >,
   ) {

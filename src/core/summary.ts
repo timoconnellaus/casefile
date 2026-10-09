@@ -11,6 +11,7 @@ import {
   type EvidenceRow,
   formatSourceRef,
   type IssueRow,
+  type LogProblem,
   type LogRow,
   type Origin,
   ORIGINS,
@@ -586,8 +587,14 @@ export interface CourtFigures {
     pending: number;
     /** The vault's record of the last entry was lost (ADR 8, amended); reported from then on. */
     headLost: { at: string; reason: "missing" | "damaged" } | null;
-    /** Kinds of problem casefile recorded earlier (never cleared). */
-    recorded: string[];
+    /**
+     * Problems casefile recorded earlier (never cleared), oldest first: `n` (1 = oldest, the
+     * number to acknowledge it by), what it was in plain words, and when the user acknowledged it
+     * (ADR 28).
+     */
+    recorded: RecordedLogProblem[];
+    /** What checking the chain found now, apart from recorded problems. */
+    chainProblem: string | null;
   };
   open: { total: number; groups: ToCheck["groups"] };
 }
@@ -712,7 +719,14 @@ async function figures(session: CaseSession, inv: Inventory): Promise<CourtFigur
       problem: check.problem ?? null,
       pending: check.pending,
       headLost: check.headLost ?? null,
-      recorded: (check.recorded ?? []).map((p) => p.kind),
+      recorded: (check.recorded ?? []).map((p, i) => ({
+        n: i + 1,
+        kind: p.kind,
+        at: p.at,
+        what: logProblemWords(p),
+        acknowledgedAt: p.acknowledged?.at ?? null,
+      })),
+      chainProblem: check.chainProblem ?? null,
     },
     open: { total: items.length, groups: groupsOf(items) },
   };
@@ -889,11 +903,28 @@ function sections(f: CourtFigures): CourtSummary["sections"] {
     : ["Nothing is waiting to be checked."];
 
   const since = f.log.since ? ` (since ${formatDate(f.log.since)})` : "";
+  const rec = f.log.recorded;
+  // Each recorded problem is listed once there is more than one or one was acknowledged; an
+  // acknowledgement never removes a problem from the summary (ADR 28).
+  const listed = rec.length > 1 || rec.some((p) => p.acknowledgedAt);
+  const allAcknowledged = rec.length > 0 && rec.every((p) => p.acknowledgedAt) &&
+    !f.log.chainProblem;
   const record = [
     f.log.intact
       ? `Log checked: no changes found${since}.`
+      : allAcknowledged
+      ? `Log checked: casefile found ${
+        rec.length === 1 ? "a problem" : `${rec.length} problems`
+      } earlier, listed below. Figures above that come from the log may be affected.`
       : `Log checked: casefile found a problem (${f.log.problem}). Figures above that come ` +
         "from the log may be affected.",
+    ...(listed
+      ? rec.map((p) =>
+        `Problem found on ${formatDate(p.at)}: ${p.what}${
+          p.acknowledgedAt ? `; acknowledged by you on ${formatDate(p.acknowledgedAt)}` : ""
+        }.`
+      )
+      : []),
     ...(f.log.pending
       ? [
         `${
@@ -924,6 +955,32 @@ function sections(f: CourtFigures): CourtSummary["sections"] {
     { id: "record", title: "The record", lines: record },
     { id: "limits", title: "What this summary cannot show", lines: limits },
   ];
+}
+
+/** One recorded log problem as the summary and the Log screen list it (ADR 28). */
+export interface RecordedLogProblem {
+  n: number;
+  kind: LogProblem["kind"];
+  at: string;
+  what: string;
+  acknowledgedAt: string | null;
+}
+
+/** What a recorded log problem was, in plain words, without its date. */
+export function logProblemWords(p: LogProblem): string {
+  switch (p.kind) {
+    case "head_damaged":
+      return "the record of the log's last entry was damaged, so entries removed from the end " +
+        "of the log before then cannot be ruled out";
+    case "head_missing":
+      return "the record of the log's last entry was missing, so entries removed from the end " +
+        "of the log before then cannot be ruled out";
+    case "settings_missing":
+      return "the case's settings were missing, so changes to the log before then cannot be " +
+        "ruled out";
+    case "tail_changed":
+      return `entries after entry ${p.headId} were deleted or altered`;
+  }
 }
 
 export const COURT_SUMMARY_TITLE = "If the Court asks: use of AI (PD-AI 4.11)";
@@ -1107,6 +1164,18 @@ const LABELS: Record<string, Label> = {
       d.kind === "tail_changed" && typeof d.after === "number" && Number.isSafeInteger(d.after)
         ? `Entries after entry ${d.after} no longer match. The log check will keep warning`
         : "The log check will keep warning",
+  ],
+  log_problem_acknowledged: [
+    "case",
+    () => "You acknowledged a problem casefile found in the log",
+    (d) =>
+      join(
+        typeof d.found === "string" ? `Found on ${formatDate(d.found)}` : null,
+        d.kind === "tail_changed" && typeof d.after === "number" && Number.isSafeInteger(d.after)
+          ? `entries after entry ${d.after}`
+          : null,
+        "It is still listed and reported",
+      ),
   ],
   log_exported: ["case", () => "You downloaded the full log"],
   court_summary_copied: ["case", () => "You copied the “If the Court asks” summary"],

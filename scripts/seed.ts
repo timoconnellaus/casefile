@@ -83,8 +83,10 @@ export const CANON_DATES = {
   confirmed: CONFIRMED_AT,
   /** Documents imported and shared, D006 among them. */
   shared: "2025-09-28T02:00:00.000Z",
-  /** Claude reads D006 lines 1–12. */
+  /** Claude reads D006 lines 1–12, and cites it in a chronology entry and an evidence link. */
   claudeRead: "2025-10-02T03:00:00.000Z",
+  /** The user checks Claude's work from D006, while it is still shared. */
+  d006Checked: "2025-10-03T03:00:00.000Z",
   /** The user adds "Annie"; casefile withdraws D006. */
   withdrawn: "2025-10-05T03:00:00.000Z",
   /** Claude's chronology, issues and evidence. */
@@ -273,9 +275,59 @@ async function build(opts: SeedOptions, clock: SeedClock): Promise<void> {
     await api("PATCH", `/api/entities/${role}`, { description });
   }
 
-  // ── D006's exposure: shared, read by Claude (2 Oct), then the user adds "Annie" (5 Oct) ──
+  // ── D006's exposure: shared, read and cited by Claude (2 Oct), checked by the user (3 Oct),
+  // then the user adds "Annie" (5 Oct). Sharing D006 again sends that work back to To check. ──
   clock.set(CANON_DATES.claudeRead);
   await c("docs", "show", "D006", "--lines", "1-12");
+  const issueIds: number[] = [];
+  for (const i of ISSUES) {
+    issueIds.push(idOf(await c("issue", "add", "--title", i.title, "--desc", i.desc, "--json")));
+  }
+  const chronoIds: number[] = [];
+  const evidenceIds: number[] = [];
+  const addChrono = async (i: number) => {
+    const e = CHRONOLOGY[i];
+    const src = e.sources.flatMap((x) => ["--source", x]);
+    chronoIds[i] = idOf(
+      await c("chrono", "add", "--date", e.date, "--text", e.text, ...src, "--json"),
+    );
+  };
+  const addEvidence = async (i: number) => {
+    const ev = EVIDENCE[i];
+    evidenceIds[i] = idOf(
+      await c(
+        "evidence",
+        "add",
+        String(issueIds[ev.issue]),
+        "--source",
+        ev.source,
+        "--stance",
+        ev.stance,
+        "--note",
+        ev.note,
+        "--json",
+      ),
+    );
+  };
+  for (const [i, e] of CHRONOLOGY.entries()) if (e.whileShared) await addChrono(i);
+  for (const [i, ev] of EVIDENCE.entries()) if (ev.whileShared) await addEvidence(i);
+  // Both ticks (ADR 8), as on 7 October below.
+  const ticks = { quoteAccurate: true, fairReading: true };
+  const checkChrono = async (i: number) => {
+    const version = await s.itemVersion("chronology", s.store.getChronology(chronoIds[i]));
+    await api("POST", `/api/chronology/${chronoIds[i]}/verify`, { version, ...ticks });
+  };
+  const checkEvidence = async (i: number) => {
+    const version = await s.itemVersion("evidence", s.store.getEvidence(evidenceIds[i]));
+    await api("POST", `/api/evidence/${evidenceIds[i]}/verify`, { version, ...ticks });
+  };
+  clock.set(CANON_DATES.d006Checked);
+  for (const [i, e] of CHRONOLOGY.entries()) {
+    if (e.whileShared && e.check === "checked") await checkChrono(i);
+  }
+  for (const [i, ev] of EVIDENCE.entries()) {
+    if (ev.whileShared && ev.checked) await checkEvidence(i);
+  }
   clock.set(CANON_DATES.withdrawn);
   const mother = s.registry.get(LATE_ALIAS.role)!;
   await api("PATCH", `/api/entities/${LATE_ALIAS.role}`, {
@@ -290,35 +342,8 @@ async function build(opts: SeedOptions, clock: SeedClock): Promise<void> {
 
   // ── 6 October: Claude's work, through the CLI ──────────────────────────────
   clock.set(CANON_DATES.claudeWork);
-  const chronoIds: number[] = [];
-  for (const e of CHRONOLOGY) {
-    const src = e.sources.flatMap((x) => ["--source", x]);
-    chronoIds.push(
-      idOf(await c("chrono", "add", "--date", e.date, "--text", e.text, ...src, "--json")),
-    );
-  }
-  const issueIds: number[] = [];
-  for (const i of ISSUES) {
-    issueIds.push(idOf(await c("issue", "add", "--title", i.title, "--desc", i.desc, "--json")));
-  }
-  const evidenceIds: number[] = [];
-  for (const ev of EVIDENCE) {
-    const issue = String(issueIds[ev.issue]);
-    evidenceIds.push(idOf(
-      await c(
-        "evidence",
-        "add",
-        issue,
-        "--source",
-        ev.source,
-        "--stance",
-        ev.stance,
-        "--note",
-        ev.note,
-        "--json",
-      ),
-    ));
-  }
+  for (const [i, e] of CHRONOLOGY.entries()) if (!e.whileShared) await addChrono(i);
+  for (const [i, ev] of EVIDENCE.entries()) if (!ev.whileShared) await addEvidence(i);
   await c("note", "add", "--on", CLAUDE_NOTE.on, "--text", CLAUDE_NOTE.text);
   log(
     `${CHRONOLOGY.length} chronology entries, ${ISSUES.length} issues, ${EVIDENCE.length} evidence links`,
@@ -328,11 +353,8 @@ async function build(opts: SeedOptions, clock: SeedClock): Promise<void> {
   clock.set(CANON_DATES.today);
   // The 29 March entry is left alone: casefile finds Claude's swap (Mia for Lachlan) and shows
   // it as Can't check, and the app would refuse to mark it checked.
-  const ticks = { quoteAccurate: true, fairReading: true };
   for (const [i, e] of CHRONOLOGY.entries()) {
-    if (e.check !== "checked") continue;
-    const version = await s.itemVersion("chronology", s.store.getChronology(chronoIds[i]));
-    await api("POST", `/api/chronology/${chronoIds[i]}/verify`, { version, ...ticks });
+    if (e.check === "checked" && !e.whileShared) await checkChrono(i);
   }
   for (const [i, iss] of ISSUES.entries()) {
     if (!iss.checked) continue;
@@ -340,9 +362,7 @@ async function build(opts: SeedOptions, clock: SeedClock): Promise<void> {
     await api("POST", `/api/issues/${issueIds[i]}/verify`, { version, neutral: true });
   }
   for (const [i, ev] of EVIDENCE.entries()) {
-    if (!ev.checked) continue;
-    const version = await s.itemVersion("evidence", s.store.getEvidence(evidenceIds[i]));
-    await api("POST", `/api/evidence/${evidenceIds[i]}/verify`, { version, ...ticks });
+    if (ev.checked && !ev.whileShared) await checkEvidence(i);
   }
 
   // ── the affidavit draft, and Paste (3 uses; the third adds ¶5 and ¶6) ──────

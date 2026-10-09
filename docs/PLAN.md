@@ -60,19 +60,21 @@ The original milestones (1–6) built the core and a first app; the v2 rebuild (
 **v2 rebuild** (all in the app and CLI as they stand):
 
 - **Design system and shell**: dark-only UI, CSP-safe classes, bundled IBM Plex Sans and Mono, one state vocabulary, shared components, AppHeader with To-check count, ⌘K search across the case (ADR 20).
+- **Documents list**: a "Filter by ID or title" box and sidebar facets (status, where it came from, type, tags, and a From/To date range on the document's date); the mockup's per-column filter row is not built (DESIGN-SPEC §9).
 - **Sharing**: origin with "Not asked yet" as the default, the commercial plan behind three PD-AI 5.5 conditions with one-at-a-time sharing, exposures with triggers and re-check, details kept while an origin change withholds a document (ADR 6, ADR 7).
 - **People**: colour slots, relationship descriptions Claude reads, the safety-sensitive flag and the person→detail link, where-they-appear, nickname impact, rename everywhere (ADR 15); merge two entries, stop replacing one that identifies no one, and "Tidy up who's who" suggestions from rules and the local language model (ADR 25).
 - **Checking**: casefile's own checks of names, dates and numbers against the cited lines; four work states with lapsed checks; the two-part check; Can't check blocks checking; removed items restorable; issue and evidence edits; "only source is your own statement" (ADR 8).
 - **Drafting**: four paragraph states with no similarity measure, placeholders, fact-by-fact answers at adoption, paragraph sources and relies-on links, vault-only affidavit heading, export flags for other kinds (ADR 9, ADR 16).
 - **Paste**: logged views and copies, per-sentence checks, safety warning before copy, add to a draft as Claude's (ADR 19).
 - **To check, log and Court summary** from signed records only; readable log with labels and CSV export (ADR 18).
+- **Log problems can be acknowledged** (ADR 28): each recorded problem keeps its record and its place in the Court summary ("acknowledged by you on <date>"); the acknowledgement is kept in the vault and logged, and the Log screen shrinks it to one quiet line. A problem found later warns in full again. The log check stays "not intact".
 - **Case setup**: recovery key, idle lock 15/30/60 minutes, Claude Code folder checks and restore, "Open Terminal here", PD-AI 5.4 confirmations, Getting started checklist (ADR 4, ADR 13, ADR 17).
 - **CLI**: logs the lines and hits it returns, paragraph `--source` / `--relies`, plain withheld reasons, removed items hidden, guide rules against writing the witness's feelings (ADR 16).
 - **Export** (wave 3): RTF for Word (affidavit with heading, numbered paragraphs and jurat; chronology table, checked only or all with unchecked marked), vault-only annexure marks, a provenance report per draft, and a safety confirmation before an export includes a protected address (ADR 21).
 - **Citations of earlier affidavits**: on a document's page the user records that it is an affidavit they swore or affirmed, and when (vault only). On export, a citation of it becomes "my affidavit sworn 2 April 2025, para 4" when "Who wrote it" is the export's speaker (the affidavit's deponent, else the user); the paragraph number comes from the vault original. An annexure mark wins; otherwise "Title, line N" as before (ADR 27).
 - **Word (.docx) export**: drafts and the chronology as `.docx` with the reviewed, exactly pinned `docx` package (9.7.2), run in a Web Worker with no permissions; the same layout, gates, safety check (on the file read back as Word shows it) and counts-only logging as RTF, which stays available. No PDF export: open the `.docx` in Word and Save as PDF (ADR 26).
 - **Extra checks** (ADR 14): a `Judge` interface with three backends (a pinned NLI model on this computer, the language model under Finding names, Jev by TypeSafe), asked on request about chronology entries, evidence, draft paragraphs and shared documents; flags only, counts-only logging, Jev off by default and listed in the Court summary when used; thresholds calibrated on a synthetic labelled set (`deno task judge-eval`).
-- **Seed**: `deno task seed` builds the synthetic CANON case (312 or 40 documents) through the real flows.
+- **Seed**: `deno task seed` builds the synthetic CANON case (312 or 40 documents) through the real flows; Claude's work citing D006 (a chronology entry and an evidence link, checked before D006 was withdrawn) fills the exposure banner's "these go back to To check" list.
 
 - **Cleanup** (W3-4): the legacy views and their shims, the `#/search` page and the old redirects are gone; so are the deprecated API surfaces (`sensitivity` fields and `POST /api/docs/:id/sensitivity`, `similarity`, the three-value paragraph `status`, `/api/stats`, `/api/reidentify`, `/api/settings/claude-setup`, the array-shaped `/api/search` and the `/api/entities` list). The API accepts origin values only; stored pre-v4 vault documents still read. Every value left as written needs the user's reason.
 
@@ -96,6 +98,7 @@ These are deliberate (REBUILD-PLAN section 3). The UI says so honestly rather th
 
 **What casefile cannot see or enforce**
 
+- **A false log problem after a crash.** A crash that loses the last database rows while the fsynced head survives can record a false `tail_changed` problem. It is never cleared; the user can acknowledge it (ADR 28), and it stays listed in the Court summary (ADR 8 amendment).
 - **Shell reads are invisible to logging.** The log records what Claude read *through casefile* (CLI output). Claude Code can also read `public.db` or other files with shell commands, which casefile never sees, so exposure records and the Court summary are a lower bound for Claude's reads; every screen says "through casefile" (ADR 16). CLI rows Claude alters or deletes before the app countersigns them cannot be detected (ADR 8).
 - **The sandbox is Claude Code's, not casefile's.** The generated settings turn on Claude Code's sandbox and deny web tools, but Claude Code honours them; the user or managed settings can override them, and user-level settings, `.mcp.json`, agents and hooks are outside casefile's view (ADR 3, ADR 17). Unsandboxed, Claude Code running as the same user could impersonate a local LLM server and receive original text, so use NER only in that case (ADR 12). The transformers.js code itself is not pinned when run from source.
 - **Deno has no `openat`/`O_NOFOLLOW`.** casefile's writes and reads of the case's Claude Code files check for links and pipes and re-check device and inode just before the rename or read, but a swap between the last check and the rename or open is narrowed, not closed (ADR 13 amendment).
@@ -122,14 +125,8 @@ These are deliberate (REBUILD-PLAN section 3). The UI says so honestly rather th
 
 - Paragraphs that became "Your words" under the old similarity rule stay "Your words" (ADR 9). Verifications made before the ledger or before cited-line hashing show as unchecked (ADR 8). Log rows from before sealing are `legacy` and are not counted (ADR 18).
 
-**Open decisions for the user**
-
-- **Log problems cannot be acknowledged.** A recorded log problem (lost or damaged log head, changed tail, missing settings) is permanent and keeps its warning on the Log screen and in the Court summary; there is no way to acknowledge it. The proposed UX is "Acknowledge": keep the record, mute the banner, and log the acknowledgement. It waits for the user's decision. Related risk: a crash that loses the last database rows while the fsynced head survives could record a false `tail_changed` problem, which then cannot be cleared (ADR 8 amendment).
-- **Documents list filters (QA D4).** The mockup's per-column filter row (ID, Title, Date range, Type, Where it came from, Status) is not built; the screen has one "Filter by ID or title" box plus the sidebar facets (state, type, origin, tags). Whether the column filters are still wanted needs the user's decision and a DESIGN-SPEC note before anyone builds them.
-
 **Known gaps**
 
-- The exposure banner's list of Claude's work that goes back to "To check" when D006 is shared again has no seeded example: the CANON seed has no Claude work citing D006, so that list has not been seen in the browser (QA D4).
 - The document API still returns `status` (`pending` / `published`) next to `state`: the screens use it to tell a document never reviewed from one reviewed but waiting for a re-check, which `state` (`needs_review` for both) does not distinguish.
 - The packaged desktop app (`deno task desktop`) is built but not smoke-tested (above).
 
@@ -169,6 +166,7 @@ These are deliberate (REBUILD-PLAN section 3). The UI says so honestly rather th
 The user runs the desktop app, installed from this repo's GitHub releases. It updates itself: when a new release is out it shows "casefile X.Y.Z is ready — Restart to update" (ADR 24, [RELEASING.md](RELEASING.md)). Work happens in worktrees.
 
 - **Develop:** in a worktree, run `deno task seed:dev` once, then `deno task dev` (http://127.0.0.1:8218, marked "dev"). It opens only cases inside `.dev/`.
+- **Browser check:** `deno task browsercheck` seeds a fresh CANON case in a temporary folder, runs the app on a free port with its own config, unlocks it and loads every screen in headless Chromium (`CHROME_PATH`, else Playwright's own). A screen fails on a console error, an uncaught exception, a failed request to the app, a missing main heading, or sideways scrolling at 375px; screenshots go to `.browsercheck/`. It is not part of `deno task ci`.
 - **Release:** open a PR; once GitHub CI is green and it is merged, the push to `main` releases it at the next version. The release workflow builds, smoke-tests, makes update patches, then signs and publishes (after the owner's approval, if the `release` environment requires it). A new version backs the case up to `~/Library/Application Support/casefile/backups/` (Claude Code can't read there) before it first opens it, and installs its own `casefile` CLI to `~/.local/bin`.
 - **Go back:** quit casefile, install the earlier release's `casefile-macos-arm64.zip` from GitHub over `~/Applications/casefile.app`, then replace the case folder's contents with the backup made before the version being left (everything except `backup.json`). Work done since that backup is lost.
 - **Schema changes:** bump `SCHEMA_VERSION`, add a migration, then freeze the new version with `UPDATE_SCHEMA_FIXTURE=1 deno task test tests/schema_fixtures_test.ts`.

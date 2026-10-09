@@ -53,6 +53,18 @@
 }
 
 /* ── the full log ────────────────────────────────────────── */
+.log-ack {
+  margin: 0;
+  font-size: var(--fs-sm);
+}
+
+.log-ack-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
 .log-check {
   display: flex;
   flex-direction: column;

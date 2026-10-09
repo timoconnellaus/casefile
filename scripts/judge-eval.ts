@@ -5,10 +5,12 @@
  *
  *   deno task judge-eval local [--model <candidate>] [--cache <dir>]
  *   deno task judge-eval llm --url http://127.0.0.1:1234/v1 --model qwen/qwen3.6-35b-a3b
- *   TYPESAFE_API_KEY=… deno task judge-eval jev
+ *   deno task judge-eval jev
  *
  * The evaluation set is synthetic (tests/fixtures/judge_eval.ts, ADR 11); no case is opened.
- * `jev` sends those synthetic sentences to TypeSafe and is billed to the key's account.
+ * `jev` sends those synthetic sentences to TypeSafe and is billed to the key's account. The key is
+ * `TYPESAFE_API_KEY`, or else the macOS Keychain item `casefile-typesafe-api-key` (see
+ * docs/PLAN.md, "Using it while it is being built"). It is never printed.
  */
 import { parseArgs } from "@std/cli/parse-args";
 import { defaultModelDir, type NerModelSpec } from "../src/core/detect/ner.ts";
@@ -47,6 +49,22 @@ const CANDIDATES: Record<string, NerModelSpec> = {
   },
 };
 
+/** The developer's Jev key from the macOS Keychain, if there is one (never logged). */
+async function keychainKey(): Promise<string | undefined> {
+  if (Deno.build.os !== "darwin") return undefined;
+  try {
+    const out = await new Deno.Command("security", {
+      args: ["find-generic-password", "-s", "casefile-typesafe-api-key", "-w"],
+      stdout: "piped",
+      stderr: "null",
+    }).output();
+    const key = new TextDecoder().decode(out.stdout).trim();
+    return out.success && key ? key : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 const args = parseArgs(Deno.args, {
   string: ["model", "url", "cache", "question"],
   boolean: ["verbose"],
@@ -69,8 +87,12 @@ if (backend === "local") {
   );
   modelName = args.model;
 } else if (backend === "jev") {
-  const key = Deno.env.get("TYPESAFE_API_KEY");
-  if (!key) throw new Error("jev needs TYPESAFE_API_KEY in the environment");
+  const key = Deno.env.get("TYPESAFE_API_KEY") ?? await keychainKey();
+  if (!key) {
+    throw new Error(
+      "jev needs a key: TYPESAFE_API_KEY, or the Keychain item casefile-typesafe-api-key",
+    );
+  }
   judge = new JevJudge(key);
   modelName = JEV_MODEL;
 } else {

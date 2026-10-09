@@ -1618,7 +1618,9 @@ class Review {
                   ? h(
                     "span",
                     { class: "rv-error small" },
-                    "The names differ: the language model may have matched who they are, not their name. Use this only if you’re sure.",
+                    x.type === "leave"
+                      ? "Claude would read this as written. Only the language model says it identifies no one, and the document it read could be written to say so. Use this only if you’re sure."
+                      : "The names differ: the language model may have matched who they are, not their name. Use this only if you’re sure.",
                   )
                   : null,
                 x.why ? h("span", { class: "small muted" }, x.why) : null,

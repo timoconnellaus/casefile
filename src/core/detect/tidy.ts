@@ -1,5 +1,5 @@
 import type { EntityKind } from "../kinds.ts";
-import { type EntityRegistry, normaliseVariant } from "../entities.ts";
+import { type EntityRegistry, normaliseVariant, splitPersonName } from "../entities.ts";
 import { isValidRole } from "../tokens.ts";
 import { harmlessShape } from "./rules.ts";
 import { chunkText } from "./chunk.ts";
@@ -192,6 +192,14 @@ export function checkSuggestions(
       const from = registry.get(String(s.from));
       const into = registry.get(String(s.into));
       if (!from || !into || from === into || from.kind !== into.kind) continue;
+      // People are merged on a model's word only when their given names match: it may have
+      // matched a role, or been steered by the document (security review).
+      const names = (e: typeof from) =>
+        [e.forms.full, e.forms.first, ...e.aliases].filter((v): v is string => !!v);
+      if (
+        source === "llm" && from.kind === "person" &&
+        !names(from).some((v) => namesOverlap(v, names(into)))
+      ) continue;
       out.push({ type: "merge", from: from.role, into: into.role, why: why(s), source });
     } else if (s.type === "rename") {
       const e = registry.get(String(s.role));
@@ -355,7 +363,18 @@ export type ReviewSuggestion =
     caution?: boolean;
   }
   | { type: "label"; key: string; to: string; why: string; source: TidySource }
-  | { type: "leave"; key: string; why: string; source: TidySource };
+  | {
+    type: "leave";
+    key: string;
+    why: string;
+    source: TidySource;
+    /**
+     * The model says it identifies no one, but it isn't a time, date or amount. The document it
+     * read may be written to say so (prompt injection, security review), so this is shown with a
+     * warning and never applied by "Use all".
+     */
+    caution?: boolean;
+  };
 
 export const REVIEW_PROMPT = `You help de-identify an Australian family-law document before it is
 shared. You get part of the document, the people and details already known in the case
@@ -424,7 +443,7 @@ export function checkReviewSuggestions(
       const kind = known?.kind ?? other?.kind;
       if (!target || !kind || kindGroup(kind) !== kindGroup(item.kind)) continue;
       const theirs = known
-        ? [known.forms.full, known.forms.first, known.forms.surname, ...known.aliases]
+        ? [known.forms.full, known.forms.first, ...known.aliases]
           .filter((v): v is string => !!v)
         : [other!.value];
       const caution = item.kind === "person" && !namesOverlap(item.value, theirs);
@@ -447,28 +466,40 @@ export function checkReviewSuggestions(
       out.push({ type: "label", key: item.key, to, why: why(s), source });
     } else if (s.type === "leave") {
       if (NEVER_REMOVE.has(item.kind) || knownIn(item.value)) continue;
-      out.push({ type: "leave", key: item.key, why: why(s) || "Identifies no one.", source });
+      const caution = !harmlessShape(item.value, item.kind);
+      out.push({
+        type: "leave",
+        key: item.key,
+        why: why(s) || "Identifies no one.",
+        source,
+        ...(caution ? { caution } : {}),
+      });
     }
   }
   return out;
 }
 
 /**
- * Whether a name shares a word with any of `values`, or one word starts the other ("Dan" and
- * "Daniel"), ignoring case, commas and titles. Nicknames that don't ("Bob", "Robert") don't count.
+ * Whether two people's names can be one person: their given names match, or one starts the other
+ * ("Dan" and "Daniel"), in any word order ("OKAFOR, Daniel"). A shared surname alone is not enough
+ * ("Mia Okafor" is not "Daniel Okafor"), nor are nicknames that don't share a start ("Bob",
+ * "Robert"). Titles are ignored.
  */
 export function namesOverlap(value: string, values: string[]): boolean {
-  const words = (v: string) =>
-    normaliseVariant(v).replace(/[,.]/g, " ").split(/\s+/)
-      .filter((w) => w.length >= 2 && !/^(mr|mrs|ms|miss|mx|dr|prof|master)$/.test(w));
-  const mine = words(value);
-  return values.some((v) =>
-    words(v).some((w) =>
-      mine.some((m) =>
-        m === w || (Math.min(m.length, w.length) >= 3 && (m.startsWith(w) || w.startsWith(m)))
-      )
-    )
-  );
+  const given = (v: string) => {
+    const clean = v.replace(/\b(?:mr|mrs|ms|miss|mx|dr|prof|master)\.?\s+/gi, "").trim();
+    const p = splitPersonName(clean);
+    return normaliseVariant(p.first ?? clean).replace(/[,.]/g, "");
+  };
+  const mine = given(value);
+  if (mine.length < 2) return false;
+  return values.some((v) => {
+    const theirs = given(v);
+    return theirs.length >= 2 &&
+      (mine === theirs ||
+        (Math.min(mine.length, theirs.length) >= 3 &&
+          (mine.startsWith(theirs) || theirs.startsWith(mine))));
+  });
 }
 
 /** Suggestions from rules alone: harmless shapes, and one name written two ways. */

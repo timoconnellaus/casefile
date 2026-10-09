@@ -78,3 +78,13 @@ targets ≥ 44px for primary actions, ≥ 32px elsewhere; text ≥ 4.5:1, UI bor
 ## 8. Data the screens may show (honesty rule)
 Show only what casefile can actually know or check. Don't claim things outside its control (e.g. "vault
 blocked for Claude Code: yes"). Counts in the Court summary come only from checks the app recorded.
+
+## 9. Screen decisions after the boards
+
+- **Documents list filters (QA D4, decided 2026-10-09).** The Documents board's per-column filter
+  row (ID, Title, Date range, Type, Where it came from, Status) is **not built**. The screen keeps
+  one "Filter by ID or title" box above the table and the sidebar facets (Status, Where it came
+  from, Type, Tags), and the sidebar gains a **Date** facet: From and To on the document's own
+  date, inclusive; a month or year date matches if any of it is in the range; documents without a
+  date are hidden while a range is set, and the facet says so. One place for filters, which also
+  works at 375px, where a filter row over seven columns would not.

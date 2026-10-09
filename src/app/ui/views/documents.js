@@ -3,7 +3,7 @@
 // selection) with bulk actions; and what casefile knows about the case.
 import { clear, h } from "../dom.js";
 import { action, api, listPeople } from "../lib.js";
-import { badgeFor, formatDay, plural, STATES } from "../model.js";
+import { badgeFor, formatDay, inDateRange, plural, STATES } from "../model.js";
 import {
   announce,
   Badge,
@@ -56,7 +56,7 @@ const STATUS_RANK = { exposed: 0, needs_review: 1, withheld: 2, shared: 3 };
 const ORIGIN_KEYS = [...ORIGINS.map((o) => o.id), "none"];
 
 // Filters, sort and the review queue survive re-renders within the session.
-const filters = { status: "all", origin: "all", type: "all", tag: null, q: "" };
+const filters = { status: "all", origin: "all", type: "all", tag: null, q: "", from: "", to: "" };
 let tableSort = { key: "date", dir: "desc" };
 const QUEUE_KEY = "casefile.docs.reviewQueue";
 
@@ -81,6 +81,7 @@ function matches(d) {
   if (filters.origin !== "all" && (d.origin ?? "none") !== filters.origin) return false;
   if (filters.type !== "all" && typeGroup(d.doc_type) !== filters.type) return false;
   if (filters.tag && !(d.tags ?? []).includes(filters.tag)) return false;
+  if (!inDateRange(d.doc_date, filters.from, filters.to)) return false;
   const q = filters.q.trim().toLowerCase();
   if (q && !d.id.toLowerCase().includes(q) && !d.title.toLowerCase().includes(q)) return false;
   return true;
@@ -350,6 +351,63 @@ export default async function view(main, _params, ctx) {
         : null,
     );
   };
+
+  // ── date range (left, below the facets; built once so the fields keep focus) ──
+  const dateHint = h("p", { id: "docs-date-hint", class: "muted small" });
+  const dateField = (id, label, key) => {
+    const input = h("input", {
+      id,
+      type: "date",
+      class: "docs-date",
+      value: filters[key],
+      "aria-describedby": "docs-date-hint",
+      onchange: (e) => {
+        filters[key] = e.target.value;
+        renderDates();
+        setFilter(key, e.target.value);
+      },
+    });
+    return {
+      input,
+      el: h("div", { class: "docs-date-field" }, h("label", { for: id }, label), input),
+    };
+  };
+  const fromField = dateField("docs-from", "From", "from");
+  const toField = dateField("docs-to", "To", "to");
+  const clearDates = Button("Clear dates", {
+    variant: "quiet",
+    onclick: () => {
+      filters.from = filters.to = "";
+      renderDates();
+      setFilter("from", "");
+      fromField.input.focus();
+    },
+  });
+  const renderDates = () => {
+    fromField.input.value = filters.from;
+    toField.input.value = filters.to;
+    const set = Boolean(filters.from || filters.to);
+    clearDates.hidden = !set;
+    dateHint.textContent = filters.from && filters.to && filters.from > filters.to
+      ? "The From date is after the To date, so no document matches."
+      : set
+      ? "Documents without a date are hidden while a date range is set."
+      : "The document’s own date, as in the Date column.";
+  };
+  const dates = h(
+    "section",
+    { class: "docs-facets", "aria-labelledby": "facet-date" },
+    h("h2", { id: "facet-date", class: "eyebrow" }, "Date"),
+    h(
+      "div",
+      { class: "vstack docs-date-range", role: "group", "aria-labelledby": "facet-date" },
+      fromField.el,
+      toField.el,
+      dateHint,
+      clearDates,
+    ),
+  );
+  renderDates();
 
   // ── bulk actions ──
   const bulk = h("div", {
@@ -625,8 +683,17 @@ export default async function view(main, _params, ctx) {
   const resetBtn = Button("Show all", {
     variant: "quiet",
     onclick: () => {
-      Object.assign(filters, { status: "all", origin: "all", type: "all", tag: null, q: "" });
+      Object.assign(filters, {
+        status: "all",
+        origin: "all",
+        type: "all",
+        tag: null,
+        q: "",
+        from: "",
+        to: "",
+      });
       q.value = "";
+      renderDates();
       refilter();
       say(`${docs.length} documents shown`);
     },
@@ -645,6 +712,7 @@ export default async function view(main, _params, ctx) {
         "aside",
         { class: "col-side col-side--left docs-filters", "aria-label": "Filters" },
         facets,
+        dates,
       ),
       h(
         "div",

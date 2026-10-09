@@ -21,6 +21,7 @@ import {
   formatRef,
   formatRefs,
   idleNote,
+  inDateRange,
   lineRange,
   parseRef,
   planSegments,
@@ -423,4 +424,23 @@ Deno.test("Settings says what the last update check found", () => {
     updateCheckNote({ ...u, lastCheck: at, ready: "0.3.0" }),
     "casefile 0.3.0 is ready. Restart to update.",
   );
+});
+
+Deno.test("Documents date range: inclusive ends, partial dates by overlap, undated hidden", () => {
+  assert(inDateRange(null, "", ""), "no range: everything, dated or not");
+  assert(inDateRange("2025-03-14", "2025-03-14", "2025-03-14"), "both ends inclusive");
+  assert(inDateRange("2025-03-14", "2025-03-01", ""));
+  assert(!inDateRange("2025-02-28", "2025-03-01", ""));
+  assert(inDateRange("2025-03-14", "", "2025-03-31"));
+  assert(!inDateRange("2025-04-01", "", "2025-03-31"));
+  // A month or a year matches if any of it is in the range.
+  assert(inDateRange("2025-03", "2025-03-20", "2025-04-10"));
+  assert(!inDateRange("2025-02", "2025-03-01", ""));
+  assert(inDateRange("2025", "2025-06-01", "2025-06-30"));
+  assert(!inDateRange("2024", "2025-01-01", ""));
+  // With a range set, no date (or nonsense) does not match; from after to matches nothing.
+  assert(!inDateRange(null, "2025-01-01", ""));
+  assert(!inDateRange("", "", "2025-12-31"));
+  assert(!inDateRange("soon", "2025-01-01", ""));
+  assert(!inDateRange("2025-03-14", "2025-04-01", "2025-03-01"));
 });

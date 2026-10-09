@@ -60,6 +60,7 @@ The original milestones (1–6) built the core and a first app; the v2 rebuild (
 **v2 rebuild** (all in the app and CLI as they stand):
 
 - **Design system and shell**: dark-only UI, CSP-safe classes, bundled IBM Plex Sans and Mono, one state vocabulary, shared components, AppHeader with To-check count, ⌘K search across the case (ADR 20).
+- **Documents list**: a "Filter by ID or title" box and sidebar facets (status, where it came from, type, tags, and a From/To date range on the document's date); the mockup's per-column filter row is not built (DESIGN-SPEC §9).
 - **Sharing**: origin with "Not asked yet" as the default, the commercial plan behind three PD-AI 5.5 conditions with one-at-a-time sharing, exposures with triggers and re-check, details kept while an origin change withholds a document (ADR 6, ADR 7).
 - **People**: colour slots, relationship descriptions Claude reads, the safety-sensitive flag and the person→detail link, where-they-appear, nickname impact, rename everywhere (ADR 15); merge two entries, stop replacing one that identifies no one, and "Tidy up who's who" suggestions from rules and the local language model (ADR 25).
 - **Checking**: casefile's own checks of names, dates and numbers against the cited lines; four work states with lapsed checks; the two-part check; Can't check blocks checking; removed items restorable; issue and evidence edits; "only source is your own statement" (ADR 8).
@@ -123,10 +124,6 @@ These are deliberate (REBUILD-PLAN section 3). The UI says so honestly rather th
 **Legacy and grandfathered data**
 
 - Paragraphs that became "Your words" under the old similarity rule stay "Your words" (ADR 9). Verifications made before the ledger or before cited-line hashing show as unchecked (ADR 8). Log rows from before sealing are `legacy` and are not counted (ADR 18).
-
-**Open decisions for the user**
-
-- **Documents list filters (QA D4).** The mockup's per-column filter row (ID, Title, Date range, Type, Where it came from, Status) is not built; the screen has one "Filter by ID or title" box plus the sidebar facets (state, type, origin, tags). Whether the column filters are still wanted needs the user's decision and a DESIGN-SPEC note before anyone builds them.
 
 **Known gaps**
 

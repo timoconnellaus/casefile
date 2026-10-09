@@ -1287,6 +1287,7 @@ export default async function view(main, params, ctx) {
   // ── export dialogs (W3-1): Word, text, Markdown, provenance; the safety confirmation ──
 
   const EXPORT_MIME = {
+    docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     rtf: "application/rtf",
     text: "text/plain",
     markdown: "text/markdown",
@@ -1312,8 +1313,15 @@ export default async function view(main, params, ctx) {
       throw new ApiError(res.status, body);
     }
     const name = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ??
-      `draft-${id}.${format === "rtf" ? "rtf" : format === "text" ? "txt" : "md"}`;
-    download(name, await res.text(), EXPORT_MIME[format]);
+      `draft-${id}.${
+        format === "docx" || format === "rtf" ? format : format === "text" ? "txt" : "md"
+      }`;
+    // A .docx is binary: keep its bytes as they are.
+    download(
+      name,
+      format === "docx" ? await res.arrayBuffer() : await res.text(),
+      EXPORT_MIME[format],
+    );
     const msg = `Exported ${name}. Check your downloads folder.`;
     announce(msg);
     showToast(msg, { glyph: "check" });
@@ -1449,10 +1457,18 @@ export default async function view(main, params, ctx) {
           type: "button",
           class: "btn btn-primary btn-lg",
           disabled,
+          "data-export": "docx",
+          "aria-describedby": "exp-why",
+          onclick: act(() => tryExport("docx")),
+        }, "Export for Word (.docx)"),
+        h("button", {
+          type: "button",
+          class: "btn btn-lg",
+          disabled,
           "data-export": "rtf",
           "aria-describedby": "exp-why",
           onclick: act(() => tryExport("rtf")),
-        }, "Export for Word (.rtf)"),
+        }, "Export as .rtf"),
         h("button", {
           type: "button",
           class: "btn btn-lg",
@@ -1473,7 +1489,7 @@ export default async function view(main, params, ctx) {
       h(
         "p",
         { class: "muted" },
-        `Exports save to your computer’s downloads, never into the case folder Claude works in. To make a PDF, open the .rtf in Word and Save as PDF.${
+        `Exports save to your computer’s downloads, never into the case folder Claude works in. To make a PDF, open the .docx in Word and Save as PDF.${
           affidavit
             ? " Check the layout against the Court’s current affidavit form before you sign."
             : ""
@@ -1508,7 +1524,7 @@ export default async function view(main, params, ctx) {
         {},
         "Line references like ",
         h("span", { class: "mono" }, "D002:9"),
-        " mean nothing to the Court. On export they become the document’s title and line, or its annexure mark (such as “annexure AT-1”) if you gave it one.",
+        " mean nothing to the Court. On export they become the document’s title and line, or its annexure mark (such as “annexure AT-1”) if you gave it one. A citation of your own earlier affidavit becomes “my affidavit sworn [date], para 4” once you record on that document’s page when you swore or affirmed it.",
       ),
       first
         ? h(

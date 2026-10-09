@@ -1187,6 +1187,13 @@ const LABELS: Record<string, Label> = {
     "documents",
     (d) => `You said who wrote ${docRef(d)}`,
   ],
+  earlier_affidavit_set: [
+    "documents",
+    (d) =>
+      d.set === false
+        ? `You said ${docRef(d)} is not one of your affidavits`
+        : `You said when you swore or affirmed ${docRef(d)}`,
+  ],
   origin_changed: [
     "documents",
     (d) =>

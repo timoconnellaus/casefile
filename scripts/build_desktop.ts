@@ -62,6 +62,9 @@ if (import.meta.main) {
     // PDF import reads the text layer in a worker (ADR 23, PDF import).
     "--include",
     "src/core/pdf_worker.ts",
+    // .docx exports are written in a worker too (ADR 26).
+    "--include",
+    "src/core/export/docx_worker.ts",
     ...excludes.flatMap((e) => ["--exclude", e]),
     // `deno desktop` adds the .app itself.
     "--output",

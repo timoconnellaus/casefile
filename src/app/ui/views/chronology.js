@@ -521,9 +521,9 @@ export default async function view(main, _params, ctx) {
       renderSlots();
       exportBtn.focus();
     };
-    const run = async (confirmSafety) => {
+    const run = async (format, confirmSafety) => {
       const res = await fetch(
-        `/api/chronology/export?which=${st.exportWhich ?? "checked"}${
+        `/api/chronology/export?which=${st.exportWhich ?? "checked"}&format=${format}${
           confirmSafety ? "&confirmSafety=1" : ""
         }`,
         { credentials: "same-origin" },
@@ -535,6 +535,7 @@ export default async function view(main, _params, ctx) {
           st.exportSafety = (body.addresses ?? []).every((a) => !a.kind || a.kind === "address")
             ? "address"
             : "details";
+          st.exportFormat = format;
           renderSlots();
           slotExport.querySelector(".confirmbar")?.focusPrimary?.();
           return;
@@ -542,8 +543,15 @@ export default async function view(main, _params, ctx) {
         throw new ApiError(res.status, body);
       }
       const name = /filename="([^"]+)"/.exec(res.headers.get("content-disposition") ?? "")?.[1] ??
-        "chronology.rtf";
-      download(name, await res.text(), "application/rtf");
+        `chronology.${format}`;
+      // A .docx is binary: keep its bytes as they are.
+      download(
+        name,
+        format === "docx" ? await res.arrayBuffer() : await res.text(),
+        format === "docx"
+          ? "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+          : "application/rtf",
+      );
       st.exportSafety = false;
       renderSlots();
       const msg = `Exported ${name}. Check your downloads folder.`;
@@ -609,7 +617,7 @@ export default async function view(main, _params, ctx) {
             ? "Export with these details"
             : "Export with the address",
           danger: true,
-          onConfirm: action(() => run(true)),
+          onConfirm: action(() => run(st.exportFormat ?? "docx", true)),
           onCancel: () => {
             st.exportSafety = false;
             renderSlots();
@@ -620,11 +628,16 @@ export default async function view(main, _params, ctx) {
       h(
         "div",
         { class: "hstack" },
-        Button("Export for Word (.rtf)", {
+        Button("Export for Word (.docx)", {
           variant: "primary",
           size: "lg",
+          "data-export": "docx",
+          onclick: action(() => run("docx", false)),
+        }),
+        Button("Export as .rtf", {
+          size: "lg",
           "data-export": "rtf",
-          onclick: action(() => run(false)),
+          onclick: action(() => run("rtf", false)),
         }),
         Button("Close", { size: "lg", onclick: close }),
       ),

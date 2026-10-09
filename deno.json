@@ -27,7 +27,8 @@
     "@std/encoding": "jsr:@std/encoding@^1",
     "@std/cli": "jsr:@std/cli@^1",
     "@huggingface/transformers": "npm:@huggingface/transformers@^3",
-    "unpdf": "npm:unpdf@~1.8.1"
+    "unpdf": "npm:unpdf@~1.8.1",
+    "docx": "npm:docx@9.7.2"
   },
   "fmt": {
     "lineWidth": 100,

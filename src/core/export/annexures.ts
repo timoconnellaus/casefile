@@ -1,6 +1,7 @@
 import { InvalidInputError } from "../publicdb.ts";
 import type { CaseSession } from "../session.ts";
 import { getDraftHeading } from "../drafting.ts";
+import { myAffidavitCitation } from "./affidavits.ts";
 
 /**
  * Annexure marks for one draft (e.g. "AT-1"), kept in the vault only (ADR 0021). A mark starts
@@ -141,27 +142,40 @@ export async function suggestMarks(
 
 /**
  * Turn citations in re-identified text into what a court reader understands: a marked document
- * becomes "annexure AT-1"; any other document "Text messages, March 2025, line 3" (or
- * "…, lines 3–5"). Unknown documents are left as they are.
+ * becomes "annexure AT-1"; the speaker's own earlier affidavit "my affidavit sworn 2 April 2025,
+ * para 4" (`myAffidavitCitation`, ADR 0027); any other document "Text messages, March 2025,
+ * line 3" (or "…, lines 3–5"). Unknown documents are left as they are. `speaker` is the role
+ * "my" means: the affidavit's deponent, or the user (`exportSpeaker`); without one, no citation
+ * says "my".
  */
 export async function convertCitationsWith(
   session: CaseSession,
   text: string,
   marks: Record<string, string>,
+  opts: { speaker?: string | null } = {},
 ): Promise<string> {
   const titles = new Map<string, string | null>();
+  const mine = new Map<string, string | null>();
   for (const m of text.matchAll(CITE_RE)) {
-    if (titles.has(m[1])) continue;
-    try {
-      titles.set(m[1], (await session.getDoc(m[1])).title);
-    } catch {
-      titles.set(m[1], null);
+    if (!titles.has(m[1])) {
+      try {
+        titles.set(m[1], (await session.getDoc(m[1])).title);
+      } catch {
+        titles.set(m[1], null);
+      }
+    }
+    const key = m[0];
+    if (titles.get(m[1]) && !Object.hasOwn(marks, m[1]) && !mine.has(key)) {
+      const a = Number(m[2]);
+      mine.set(key, await myAffidavitCitation(session, m[1], a, Number(m[3] ?? a), opts.speaker));
     }
   }
   return text.replace(CITE_RE, (all, doc: string, a: string, b?: string) => {
     const title = titles.get(doc);
     if (!title) return all;
     if (Object.hasOwn(marks, doc)) return `annexure ${marks[doc]}`;
+    const my = mine.get(all);
+    if (my) return my;
     return b && b !== a ? `${title}, lines ${a}–${b}` : `${title}, line ${a}`;
   });
 }
@@ -171,9 +185,10 @@ export async function describeSource(
   session: CaseSession,
   ref: { doc_id: string; line_start: number; line_end: number },
   marks: Record<string, string> = {},
+  opts: { speaker?: string | null } = {},
 ): Promise<string> {
   const r = `${ref.doc_id}:${ref.line_start}${
     ref.line_end !== ref.line_start ? `-${ref.line_end}` : ""
   }`;
-  return await convertCitationsWith(session, r, marks);
+  return await convertCitationsWith(session, r, marks, opts);
 }

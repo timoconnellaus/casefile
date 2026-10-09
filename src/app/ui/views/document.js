@@ -700,6 +700,46 @@ function DetailsSection(doc, rerender, entities = []) {
       h("option", { value: p.role, selected: doc.author === p.role }, p.forms?.full ?? p.role)
     ),
   );
+  // An affidavit the user swore or affirmed earlier (vault only): exports cite it as "my
+  // affidavit sworn 2 April 2025, para 4".
+  const affId = `doc-affidavit-${doc.id}`;
+  const oath = h(
+    "select",
+    { id: affId },
+    h("option", { value: "", selected: !doc.affidavit }, "No"),
+    h("option", { value: "sworn", selected: doc.affidavit?.oath === "sworn" }, "Yes, sworn"),
+    h(
+      "option",
+      { value: "affirmed", selected: doc.affidavit?.oath === "affirmed" },
+      "Yes, affirmed",
+    ),
+  );
+  const oathDate = h("input", {
+    type: "date",
+    id: `${affId}-date`,
+    value: doc.affidavit?.date ?? "",
+  });
+  const saveAffidavit = Button("Save affidavit details", {
+    onclick: action(async () => {
+      if (oath.value && !oathDate.value) {
+        announce("Choose the date you swore or affirmed it.");
+        showToast("Choose the date you swore or affirmed it.", { tone: "danger" });
+        oathDate.focus();
+        return;
+      }
+      await api(
+        "PUT",
+        `/api/docs/${doc.id}/affidavit`,
+        oath.value ? { oath: oath.value, date: oathDate.value } : { affidavit: null },
+      );
+      const msg = oath.value
+        ? `Saved: exports cite ${doc.id} as your affidavit ${oath.value} on that date.`
+        : `Saved: ${doc.id} is not one of your affidavits.`;
+      announce(msg);
+      showToast(msg);
+      await rerender(`#${affId}`);
+    }),
+  });
   const type = h("input", { type: "text", value: m.doc_type ?? "", autocomplete: "off" });
   const date = h("input", { type: "date", value: m.doc_date ?? "" });
   const author = h("input", { type: "text", value: m.author_role ?? "", autocomplete: "off" });
@@ -775,6 +815,24 @@ function DetailsSection(doc, rerender, entities = []) {
         "Only you can set this; Claude can’t. If you wrote it, casefile flags Claude’s work whose only source is your own statement.",
     }),
     h("div", { class: "hstack" }, save),
+    doc.origin === "mine"
+      ? h(
+        "div",
+        { class: "vstack gap-sm" },
+        h(
+          "div",
+          { class: "doc-details" },
+          Field({ label: "Is this an affidavit you swore or affirmed?", control: oath }),
+          Field({ label: "On", control: oathDate }),
+        ),
+        h(
+          "p",
+          { class: "muted small" },
+          "Only you can set this; Claude can’t. When “Who wrote it” is you, exports cite it as “my affidavit sworn [date], para 4” instead of its title and line.",
+        ),
+        h("div", { class: "hstack" }, saveAffidavit),
+      )
+      : null,
     h(
       "div",
       { class: "vstack gap-sm" },

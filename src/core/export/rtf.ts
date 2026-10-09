@@ -10,28 +10,10 @@
  * group or start a control word: braces and backslashes in a paragraph Claude wrote come out as
  * literal characters. Control words are only ever written by this module.
  */
+import type { ExportBlock } from "./blocks.ts";
 
-/** One block of an RTF document. Text is plain (not RTF); it is escaped here. */
-export type RtfBlock =
-  | {
-    type: "para";
-    text: string;
-    bold?: boolean;
-    italic?: boolean;
-    align?: "left" | "centre" | "right";
-    /** Font size in points (default 12). */
-    size?: number;
-    /** Space after, in points (default 12). */
-    after?: number;
-  }
-  | { type: "numbered"; n: number; text: string }
-  | {
-    type: "table";
-    /** Column widths in twips (1/1440 inch); the total should fit the page (about 9000). */
-    widths: number[];
-    header: string[];
-    rows: string[][];
-  };
+/** One block of an RTF document (the shape every Word export is built from, `blocks.ts`). */
+export type RtfBlock = ExportBlock;
 
 /** Escape plain text for an RTF body. Output is 7-bit ASCII. */
 export function rtfText(text: string): string {

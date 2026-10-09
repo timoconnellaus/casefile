@@ -5,8 +5,15 @@ import {
   suggestedPrefix,
   suggestMarks,
 } from "../../core/export/annexures.ts";
-import { type ChronologyScope, exportChronology } from "../../core/export/chronology.ts";
 import {
+  CHRONOLOGY_FORMATS,
+  type ChronologyFormat,
+  type ChronologyScope,
+  exportChronology,
+} from "../../core/export/chronology.ts";
+import { DocxError } from "../../core/export/docx.ts";
+import {
+  type BinaryExportFile,
   DRAFT_EXPORT_FORMATS,
   type DraftExportFormat,
   exportDraftFile,
@@ -25,7 +32,8 @@ import {
 } from "./context.ts";
 
 /**
- * Exports (ADR 0021): a draft as Markdown, text or RTF for Word; the chronology as an RTF table;
+ * Exports (ADR 0021, ADR 0026): a draft as Markdown, text, RTF or .docx for Word; the chronology
+ * as an RTF or .docx table;
  * a draft's provenance report; and the draft's annexure marks, which live in the vault only.
  * Every export is a download (`Content-Disposition: attachment`, `Cache-Control: no-store`) and
  * is logged with counts only.
@@ -94,16 +102,21 @@ export function exportRoutes(ctx: RouteContext): Route[] {
       if (scope !== "checked" && scope !== "all") {
         throw new HttpError(400, "which is checked or all");
       }
+      const format = url.searchParams.get("format") ?? "rtf";
+      if (!CHRONOLOGY_FORMATS.includes(format as ChronologyFormat)) {
+        throw new HttpError(400, `Bad format; one of ${CHRONOLOGY_FORMATS.join(", ")}`);
+      }
       return download(
         await exportChronology(s(), scope as ChronologyScope, {
           confirmSafety: flag(url, "confirmSafety"),
+          format: format as ChronologyFormat,
         }),
       );
     }),
   ];
 }
 
-function download(f: ExportFile): Response {
+function download(f: ExportFile | BinaryExportFile): Response {
   return new Response(f.content, {
     headers: {
       "content-type": f.contentType,
@@ -114,6 +127,7 @@ function download(f: ExportFile): Response {
 }
 
 export const exportErrors: ErrorMapper[] = [
+  (e) => e instanceof DocxError ? { status: 500, body: { error: e.message } } : undefined,
   (e) =>
     e instanceof SafetyConfirmError
       ? {

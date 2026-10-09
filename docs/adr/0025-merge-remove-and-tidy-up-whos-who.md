@@ -133,3 +133,12 @@ entry. So the review screen gets **Suggested fixes** (`POST /api/docs/:id/tidy`,
 - The review screen also lets the user edit a new entry's label before sharing ("What Claude calls
   this new entry"), checked again by publish (a revealing label still falls back to `kind_N`).
 - The log gets `review_suggestions {doc, suggestions, llm}`: counts only.
+- **Prompt injection** (security review). The model reads documents from the other side, which
+  could be written to steer it. What a steered answer could do is limited: (1) a model "leave" for
+  anything that is not a harmless shape (a school, a place) is marked `caution`, shown with a
+  warning that Claude would read it, and never applied by "Use all"; persons and contact details
+  are never left at all. (2) "The same" between people needs matching **given names**
+  (`namesOverlap`: equal, or one starts the other, in any word order); a shared surname or an
+  initial is not enough, so "Mia Okafor" is never joined to "Daniel Okafor". The same check
+  applies to People → Tidy up's model merges. Labels are checked as before; a steered label can
+  mislead but cannot carry a value.

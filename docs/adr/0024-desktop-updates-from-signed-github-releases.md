@@ -93,3 +93,7 @@ Whether a person approves each release is now a setting of the `release` environ
 reviewers), not a step in the process. Without it, a green, merged PR reaches the app that holds
 the case. PRs are merged automatically when green, so the chain from push to install would then
 have no person in it. docs/RELEASING.md puts that choice to the owner during setup.
+
+**Set up 2026-10-09:** the owner chose fully automatic releases. The `release` environment
+deploys from `main` only and has no required reviewers. The signing key was generated straight
+into its secret.

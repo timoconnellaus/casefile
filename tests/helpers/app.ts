@@ -35,6 +35,8 @@ export interface Res {
   status: number;
   headers: Headers;
   text: string;
+  /** The body's bytes, for binary downloads (.docx). */
+  bytes: Uint8Array<ArrayBuffer>;
   // deno-lint-ignore no-explicit-any
   json: any;
 }
@@ -70,14 +72,15 @@ export class Client {
       const m = new RegExp(`${COOKIE}=([^;]*)`).exec(sc);
       if (m) this.cookie = m[1] || undefined;
     }
-    const text = await res.text();
+    const bytes = new Uint8Array(await res.arrayBuffer());
+    const text = new TextDecoder().decode(bytes);
     let json: unknown;
     try {
       json = JSON.parse(text);
     } catch {
       json = undefined;
     }
-    return { status: res.status, headers: res.headers, text, json };
+    return { status: res.status, headers: res.headers, text, bytes, json };
   }
   get(path: string, headers?: Record<string, string>) {
     return this.req("GET", path, undefined, headers);

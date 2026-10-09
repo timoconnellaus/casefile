@@ -10,12 +10,14 @@ import { type DraftKind, InvalidInputError } from "../publicdb.ts";
 import type { CaseSession } from "../session.ts";
 import type { ParaState } from "../states.ts";
 import { convertCitationsWith, getAnnexureMarks } from "./annexures.ts";
-import { type RtfBlock, rtfDocument, rtfToText } from "./rtf.ts";
+import type { ExportBlock } from "./blocks.ts";
+import { DOCX_TYPE, docxDocument, docxToText } from "./docx.ts";
+import { rtfDocument, rtfToText } from "./rtf.ts";
 import { protectedAddressesIn, SafetyConfirmError, unescapeMarkdown } from "./safety.ts";
 
 /**
- * Exporting a draft for the user to save (ADR 0009, ADR 0021): Markdown, plain text, or RTF that
- * opens in Word. Nothing is written to disk: the app delivers the content as a download, never
+ * Exporting a draft for the user to save (ADR 0009, ADR 0021, ADR 0026): Markdown, plain text,
+ * RTF that opens in Word, or a Word document (.docx). Nothing is written to disk: the app delivers the content as a download, never
  * into the case folder (ADR 0003). The filename carries no names.
  *
  * The gates are the drafting gates (`draftOverview`): an affidavit is blocked while a paragraph
@@ -28,12 +30,19 @@ import { protectedAddressesIn, SafetyConfirmError, unescapeMarkdown } from "./sa
  * document the user marked, otherwise "Title, line N".
  */
 
-export type DraftExportFormat = "markdown" | "text" | "rtf";
-export const DRAFT_EXPORT_FORMATS: DraftExportFormat[] = ["markdown", "text", "rtf"];
+export type DraftExportFormat = "markdown" | "text" | "rtf" | "docx";
+export const DRAFT_EXPORT_FORMATS: DraftExportFormat[] = ["markdown", "text", "rtf", "docx"];
 
 export interface ExportFile {
   filename: string;
   content: string;
+  contentType: string;
+}
+
+/** A binary download (.docx). */
+export interface BinaryExportFile {
+  filename: string;
+  content: Uint8Array<ArrayBuffer>;
   contentType: string;
 }
 
@@ -44,8 +53,14 @@ const CONTENT_TYPES: Record<DraftExportFormat, string> = {
   markdown: "text/markdown; charset=utf-8",
   text: "text/plain; charset=utf-8",
   rtf: "application/rtf",
+  docx: DOCX_TYPE,
 };
-const EXT: Record<DraftExportFormat, string> = { markdown: "md", text: "txt", rtf: "rtf" };
+const EXT: Record<DraftExportFormat, string> = {
+  markdown: "md",
+  text: "txt",
+  rtf: "rtf",
+  docx: "docx",
+};
 
 export function localDate(d: Date): string {
   const p = (n: number) => String(n).padStart(2, "0");
@@ -116,8 +131,9 @@ function textLayout(
   return `${parts.join("\n\n")}\n`;
 }
 
-function rtfLayout(title: string, paras: string[], a: AffidavitParts | null): string {
-  const blocks: RtfBlock[] = [];
+/** The Word layout (RTF and .docx share it). */
+function wordBlocks(title: string, paras: string[], a: AffidavitParts | null): ExportBlock[] {
+  const blocks: ExportBlock[] = [];
   if (a) {
     blocks.push(
       { type: "para", text: COURT, bold: true, align: "centre", after: 0 },
@@ -135,16 +151,40 @@ function rtfLayout(title: string, paras: string[], a: AffidavitParts | null): st
     blocks.push({ type: "para", text: title.trim(), bold: true, size: 14 });
     for (const t of paras) blocks.push({ type: "para", text: t.trim() });
   }
-  return rtfDocument(blocks);
+  return blocks;
+}
+
+interface DraftExportOptions {
+  now?: Date;
+  confirm?: boolean;
+  confirmSafety?: boolean;
 }
 
 /** Export one draft. See the module comment for the gates. */
 export async function exportDraftFile(
   session: CaseSession,
   draftId: number,
+  format: "docx",
+  opts?: DraftExportOptions,
+): Promise<BinaryExportFile>;
+export async function exportDraftFile(
+  session: CaseSession,
+  draftId: number,
+  format: "markdown" | "text" | "rtf",
+  opts?: DraftExportOptions,
+): Promise<ExportFile>;
+export async function exportDraftFile(
+  session: CaseSession,
+  draftId: number,
   format: DraftExportFormat,
-  opts: { now?: Date; confirm?: boolean; confirmSafety?: boolean } = {},
-): Promise<ExportFile> {
+  opts?: DraftExportOptions,
+): Promise<ExportFile | BinaryExportFile>;
+export async function exportDraftFile(
+  session: CaseSession,
+  draftId: number,
+  format: DraftExportFormat,
+  opts: DraftExportOptions = {},
+): Promise<ExportFile | BinaryExportFile> {
   if (!DRAFT_EXPORT_FORMATS.includes(format)) {
     throw new InvalidInputError(`Bad export format; one of ${DRAFT_EXPORT_FORMATS.join(", ")}`);
   }
@@ -182,19 +222,24 @@ export async function exportDraftFile(
   const heading = affidavit ? (await getDraftHeading(session, draftId)) ?? EMPTY_HEADING : null;
   const parts = heading ? affidavitParts(session, heading) : null;
 
-  const content = format === "rtf"
-    ? rtfLayout(title, bodies, parts)
-    : textLayout(check.kind, title, bodies, format, parts);
-  // The check reads the file as its reader will (RTF decoded, Markdown unescaped) and the
-  // strings it was built from.
-  const shown = format === "rtf"
+  const word = format === "rtf" || format === "docx" ? wordBlocks(title, bodies, parts) : null;
+  const content = format === "docx"
+    ? await docxDocument(word!)
+    : format === "rtf"
+    ? rtfDocument(word!)
+    : textLayout(check.kind, title, bodies, format as "markdown" | "text", parts);
+  // The check reads the file as its reader will (RTF decoded, the .docx unzipped, Markdown
+  // unescaped) and the strings it was built from.
+  const shown = typeof content !== "string"
+    ? await docxToText(content)
+    : format === "rtf"
     ? rtfToText(content)
     : format === "markdown"
     ? unescapeMarkdown(content)
     : content;
   const hits = protectedAddressesIn(session, [
     shown,
-    content,
+    ...(typeof content === "string" ? [content] : []),
     title,
     ...bodies,
     ...(parts ? [parts.opening, parts.applicant, parts.respondent, parts.fileNumber] : []),
@@ -223,5 +268,8 @@ export async function exportDraftFile(
     ...(Object.keys(marks).length ? { annexure_citations: cited } : {}),
     ...(hits.length ? { safety_confirmed: hits.length } : {}),
   });
-  return { filename, content, contentType: CONTENT_TYPES[format] };
+  const contentType = CONTENT_TYPES[format];
+  return typeof content === "string"
+    ? { filename, content, contentType }
+    : { filename, content, contentType };
 }

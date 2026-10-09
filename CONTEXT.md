@@ -181,9 +181,9 @@ state, the code value is in `code`; the UI words come from `src/app/ui/model.js`
   characters: letters or digits, with spaces, dots or hyphens between; unique in the draft). Vault
   only, because marks start with initials. On export a citation of a marked document becomes
   "annexure AT-1" (ADR 21).
-- **Export**: a download (Markdown, text, or RTF for Word), never written into the case folder. An
-  affidavit exports only when every Claude paragraph is adopted and no placeholder remains; other
-  kinds export after the user confirms the flags.
+- **Export**: a download (Markdown, text, or RTF or .docx for Word; ADR 26), never written into the
+  case folder. An affidavit exports only when every Claude paragraph is adopted and no placeholder
+  remains; other kinds export after the user confirms the flags.
 - **Provenance report**: Markdown for one draft, built from records Claude cannot forge: each
   paragraph's state and signed adoption time, the draft kind from the ledger, fact answers, the
   plan, and log rows whose seal verifies. It says what it cannot show (e.g. paragraph sources, which

@@ -4,12 +4,14 @@ import type { CaseSession } from "../session.ts";
 import type { WorkState } from "../states.ts";
 import { formatDate } from "../summary.ts";
 import { convertCitationsWith, describeSource } from "./annexures.ts";
-import { type ExportFile, localDate } from "./draft.ts";
-import { type RtfBlock, rtfDocument, rtfToText } from "./rtf.ts";
+import { type BinaryExportFile, type ExportFile, localDate } from "./draft.ts";
+import type { ExportBlock } from "./blocks.ts";
+import { DOCX_TYPE, docxDocument, docxToText } from "./docx.ts";
+import { rtfDocument, rtfToText } from "./rtf.ts";
 import { protectedAddressesIn, SafetyConfirmError } from "./safety.ts";
 
 /**
- * The chronology as a Word table (RTF; ADR 0021). Either only the entries the user checked
+ * The chronology as a Word table (RTF, ADR 0021, or .docx, ADR 0026). Either only the entries the user checked
  * against their sources, or every entry with the ones not checked marked. Whether an entry is
  * checked comes from the attestation ledger (`chronologyState`), never public.db's
  * `verified_at`; entries the user removed (the ledger's record) are left out, and Claude-removed
@@ -18,6 +20,8 @@ import { protectedAddressesIn, SafetyConfirmError } from "./safety.ts";
  */
 
 export type ChronologyScope = "checked" | "all";
+export type ChronologyFormat = "rtf" | "docx";
+export const CHRONOLOGY_FORMATS: ChronologyFormat[] = ["rtf", "docx"];
 
 const MARK: Record<WorkState, string> = {
   checked: "Checked",
@@ -29,10 +33,14 @@ const MARK: Record<WorkState, string> = {
 export async function exportChronology(
   session: CaseSession,
   scope: ChronologyScope,
-  opts: { now?: Date; confirmSafety?: boolean } = {},
-): Promise<ExportFile> {
+  opts: { now?: Date; confirmSafety?: boolean; format?: ChronologyFormat } = {},
+): Promise<ExportFile | BinaryExportFile> {
   if (scope !== "checked" && scope !== "all") {
     throw new InvalidInputError("Export which entries: checked or all");
+  }
+  const format = opts.format ?? "rtf";
+  if (!CHRONOLOGY_FORMATS.includes(format)) {
+    throw new InvalidInputError(`Bad export format; one of ${CHRONOLOGY_FORMATS.join(", ")}`);
   }
   const removed = await userRemoved(session);
   const rows: { date: string; what: string; source: string; added: string; state: WorkState }[] =
@@ -58,7 +66,7 @@ export async function exportChronology(
 
   const now = opts.now ?? new Date();
   const unchecked = rows.filter((r) => r.state !== "checked").length;
-  const blocks: RtfBlock[] = [
+  const blocks: ExportBlock[] = [
     { type: "para", text: "Chronology", bold: true, size: 14, after: 6 },
     {
       type: "para",
@@ -88,30 +96,31 @@ export async function exportChronology(
       text: scope === "checked" ? "No entry has been checked yet." : "The chronology is empty.",
     });
   }
-  const content = rtfDocument(blocks, { landscape: true });
+  const content = format === "docx"
+    ? await docxDocument(blocks, { landscape: true })
+    : rtfDocument(blocks, { landscape: true });
   const hits = protectedAddressesIn(session, [
-    rtfToText(content),
+    typeof content === "string" ? rtfToText(content) : await docxToText(content),
     ...rows.flatMap((r) => [r.what, r.source]),
   ]);
   if (hits.length && !opts.confirmSafety) {
     session.log("user", "export_safety_warned", {
       what: "chronology",
-      format: "rtf",
+      format,
       addresses: hits.length,
     });
     throw new SafetyConfirmError(hits);
   }
   session.log("user", "chronology_exported", {
-    format: "rtf",
+    format,
     scope,
     entries: rows.length,
     unchecked,
     left_out: total - rows.length,
     ...(hits.length ? { safety_confirmed: hits.length } : {}),
   });
-  return {
-    filename: `chronology-${scope}-${localDate(now)}.rtf`,
-    content,
-    contentType: "application/rtf",
-  };
+  const filename = `chronology-${scope}-${localDate(now)}.${format}`;
+  return typeof content === "string"
+    ? { filename, content, contentType: "application/rtf" }
+    : { filename, content, contentType: DOCX_TYPE };
 }

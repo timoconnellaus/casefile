@@ -117,3 +117,9 @@ exports stopped warning: fail-open. Two changes:
   casefile never makes the link itself: which detail is whose is the user's statement (ADR 15
   amendment 3). Dismissing a suggestion doesn't lift the export warning; linking the detail to
   someone else does. Suggestions carry labels only and, like `relatedTo`, never reach `public.db`.
+
+## Note (2026-10-09): .docx
+
+ADR 26 adds `.docx` export (the `docx` package in a worker with no permissions) next to RTF, for
+drafts and the chronology, with the same gates, safety check and logging. "`.docx` and PDF remain
+deferred" above now holds for PDF only.

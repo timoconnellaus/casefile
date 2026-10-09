@@ -72,7 +72,8 @@ deno task ci        # fmt check, lint, type check, tests
 ```
 
 Tests use only the synthetic fixtures in `tests/fixtures/`. Some tests run macOS `textutil` when it
-is present to check the RTF export.
+is present to check the RTF export, and LibreOffice (`soffice`) when it is present to check the
+.docx export.
 
 ## Security model in brief
 

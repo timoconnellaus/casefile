@@ -245,7 +245,7 @@ Deno.test("affidavit RTF: gates still apply, then a download with heading, jurat
   assertEquals((await user.get(`/api/drafts/${draft}/export?format=rtf`)).json.placeholders, [ph]);
   s.store.deleteParagraph(ph);
   await adopt(s, para);
-  assertEquals((await user.get(`/api/drafts/${draft}/export?format=docx`)).status, 400);
+  assertEquals((await user.get(`/api/drafts/${draft}/export?format=pdf`)).status, 400);
 
   const r = await user.get(`/api/drafts/${draft}/export?format=rtf`);
   assertEquals(r.status, 200, r.text);

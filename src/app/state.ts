@@ -2,18 +2,24 @@ import { isAbsolute, join, relative, resolve, SEPARATOR } from "@std/path";
 import type { Detector } from "../core/detect/types.ts";
 import { casePaths, isCaseDir } from "../core/case.ts";
 import { InvalidInputError } from "../core/publicdb.ts";
-import { CaseLock } from "../core/caselock.ts";
+import { CaseInUseError, CaseLock } from "../core/caselock.ts";
 import { CaseSession, type CaseSettings } from "../core/session.ts";
 import { KDF_ITERATIONS, Vault, VaultCorruptError, WrongPassphraseError } from "../core/vault.ts";
-import { decodeBase64, encodeBase64 } from "@std/encoding/base64";
 import { HttpError } from "./routes/context.ts";
 import type { ClaudeCodeEnv } from "./claudecode.ts";
 import type { BuildInfo } from "./build.ts";
+import type { Updates, UpdateStatus } from "./updates.ts";
+import { backupCase } from "./upgrade_backup.ts";
 import { newToken, readCookie, safeEqual } from "./security.ts";
 
 /** App-wide configuration kept outside any case folder. Holds no case content. */
 export interface AppConfig {
   lastCase?: string;
+  /**
+   * The desktop version that last opened each case (by folder). A case is backed up before a new
+   * version first opens it, since public.db migrations only go forward (ADR 24).
+   */
+  openedWith?: Record<string, string>;
   /**
    * The last-opened case's idle-lock setting (15, 30 or 60), copied here so the locked screen and
    * `/api/status` can say "Locks after N min idle" without opening the vault. Not sensitive.
@@ -45,20 +51,15 @@ export interface AppStateOptions {
   claudeCode?: ClaudeCodeEnv;
   /** Which copy of casefile this is, for `/api/status` (ADR 22). */
   build?: BuildInfo;
+  /** Desktop updates (ADR 24): whether one is ready. */
+  updates?: Updates;
+  /** Start the updated app (a new instance of the bundle); main.ts supplies it. */
+  relaunch?: () => Promise<void>;
   /**
    * A development run (`deno task dev`) opens and creates cases only inside this folder, so a
    * build being worked on can never open, and migrate, the case in daily use (ADR 22).
    */
   caseRoot?: string;
-}
-
-/** What an app restarted for an update hands to the new one (`AppState.handOff`). */
-export interface Handoff {
-  root: string;
-  /** The vault data key, base64. Only ever in memory and in the supervisor's pipes. */
-  key: string;
-  /** The session cookie's value, so the browser stays signed in. */
-  token: string;
 }
 
 /** Idle-lock choices offered in Settings (ADR 13, amended). */
@@ -155,7 +156,47 @@ export class AppState {
   }
 
   get build(): BuildInfo {
-    return this.opts.build ?? { release: null, commit: null, releasedAt: null, dev: false };
+    return this.opts.build ?? { version: null, dev: false };
+  }
+
+  get updateStatus(): UpdateStatus {
+    return this.opts.updates?.status ?? { enabled: false, ready: null, rolledBack: false };
+  }
+
+  /**
+   * Restart into the staged update (ADR 24): close the case as quitting does (its writes finish,
+   * its lock is released), then start the new version. The user unlocks the case again.
+   */
+  async restartForUpdate(): Promise<void> {
+    if (!this.updateStatus.ready || !this.opts.relaunch) {
+      throw new HttpError(409, "There is no update waiting.");
+    }
+    await this.shutdown();
+    await this.opts.relaunch();
+  }
+
+  /**
+   * The first time this version opens `root`, back the case up first: opening can migrate
+   * public.db, and an earlier version can't open it after that (ADR 24). Only a desktop build has
+   * a version; the case must not be open (the backup takes its lock).
+   */
+  async #backupBeforeNewVersion(root: string): Promise<void> {
+    const version = this.build.version;
+    const key = casePaths(root).root;
+    if (!version || this.config.openedWith?.[key] === version) return;
+    try {
+      await backupCase(key, join(this.opts.configDir, "backups"), {
+        release: version,
+        previous: this.config.openedWith?.[key] ?? null,
+      });
+    } catch (e) {
+      if (e instanceof HttpError || e instanceof CaseInUseError) throw e;
+      throw new HttpError(
+        500,
+        "casefile couldn't back up the case before this version opened it for the first time, " +
+          `so it wasn't opened: ${(e as Error).message}`,
+      );
+    }
   }
 
   async #adopt(session: CaseSession) {
@@ -164,6 +205,12 @@ export class AppState {
     this.session = session;
     this.token = newToken();
     this.config.lastCase = session.paths.root;
+    if (this.build.version) {
+      this.config.openedWith = {
+        ...this.config.openedWith,
+        [session.paths.root]: this.build.version,
+      };
+    }
     this.config.idleLockMinutes = this.idleLockMinutes();
     try {
       await this.#saveConfig();
@@ -329,6 +376,7 @@ export class AppState {
     }
     // As in `openCase`: the open session ends before the new one opens.
     if (await this.#isOpen(root)) await this.lock();
+    else await this.#backupBeforeNewVersion(root);
     const s = await CaseSession.open(root, newPassphrase);
     await this.#adopt(s);
     s.log("user", "passphrase_reset_with_recovery_key", {});
@@ -377,6 +425,12 @@ export class AppState {
         // Only the right passphrase ends the open session: anyone can call this route.
         await Vault.open(vaultDir, passphrase);
         await this.lock();
+      } else if (
+        this.build.version && this.config.openedWith?.[casePaths(root).root] !== this.build.version
+      ) {
+        // Only the right passphrase makes a backup.
+        await Vault.open(vaultDir, passphrase);
+        await this.#backupBeforeNewVersion(root);
       }
       return CaseSession.open(root, passphrase);
     });
@@ -437,28 +491,6 @@ export class AppState {
     if (!this.session?.folderReplaced()) return false;
     await this.lockReplaced();
     return true;
-  }
-
-  /**
-   * Restarting for an update (ADR 22, amendment): close the open case as `shutdown` does, and
-   * return what the new app needs to carry on without asking for the passphrase again: the case
-   * folder, the data key and the session token (so the browser stays signed in). Null when no case
-   * is open.
-   */
-  async handOff(): Promise<Handoff | null> {
-    const s = this.session;
-    const token = this.token;
-    const h = s && token ? { root: s.paths.root, key: encodeBase64(s.handOverKey()), token } : null;
-    if (s) s.log("app", "restarted_for_update", {});
-    await this.shutdown();
-    return h;
-  }
-
-  /** Carry on from `handOff` in the new app: open the case with the key, keep the token. */
-  async resume(h: Handoff): Promise<void> {
-    const s = await CaseSession.openWithKey(h.root, decodeBase64(h.key));
-    await this.#adopt(s);
-    this.token = h.token;
   }
 
   /** Sessions that are locked but still finishing their vault writes. */

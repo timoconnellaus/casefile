@@ -445,22 +445,27 @@ export function idleNote(minutes) {
 }
 
 /**
- * Which copy of casefile is running (ADR 22), from `/api/status` `build`: for Settings.
- * @param {{release: string|null, commit: string|null, releasedAt: string|null, dev: boolean}|null|undefined} build
+ * Which copy of casefile is running (ADR 22, 23), from `/api/status` `build`: for Settings.
+ * @param {{version: string|null, dev: boolean}|null|undefined} build
  */
 export function buildNote(build) {
   if (!build) return null;
   if (build.dev) return "Development copy of casefile. It opens only the example case in .dev/.";
-  if (!build.release) return "This copy of casefile has not been released.";
-  const day = build.releasedAt
-    ? new Date(build.releasedAt).toLocaleDateString("en-AU", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    })
-    : null;
-  const commit = build.commit ? ` (${build.commit.slice(0, 7)})` : "";
-  return `casefile release ${build.release}${commit}${day ? `, released ${day}` : ""}.`;
+  if (!build.version) return "This copy of casefile is not a released desktop build.";
+  return `casefile ${build.version}.`;
+}
+
+/** The update bar (ADR 24). */
+export function updateReadyNote(version) {
+  return `casefile ${version} is ready. Restart to update.`;
+}
+
+export function updateReadyLockedNote(version) {
+  return `casefile ${version} is ready. Quit casefile and open it again to update.`;
+}
+
+export function updateRolledBackNote() {
+  return "The last casefile update didn't start, so casefile went back to the version before it.";
 }
 
 /** The window title, marked on a development copy so it can't be taken for the real one. */

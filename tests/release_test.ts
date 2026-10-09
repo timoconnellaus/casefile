@@ -1,5 +1,5 @@
 /**
- * Using casefile while it is being worked on (ADR 22): the upgrade backup `deno task release`
+ * Using casefile while it is being worked on (ADR 22): the upgrade backup a new version
  * makes, a development run that opens only cases in its own folder, and which copy is running.
  * SYNTHETIC data only (ADR 11).
  */
@@ -10,7 +10,6 @@ import { backupCase } from "../src/app/upgrade_backup.ts";
 import { CASE_LOCK_FILE, CaseInUseError } from "../src/core/caselock.ts";
 import { SCHEMA_VERSION } from "../src/core/publicdb.ts";
 import { CaseSession } from "../src/core/session.ts";
-import { VaultCorruptError } from "../src/core/vault.ts";
 import { AFFIDAVIT, AFFIDAVIT_TITLE, tempDir } from "./fixtures/synthetic.ts";
 import { PASS, setup } from "./helpers/app.ts";
 
@@ -128,37 +127,9 @@ Deno.test("a development run opens and creates cases only inside its own folder"
 
 Deno.test("/api/status says which copy of casefile is running", async () => {
   const plain = await setup();
-  assertEquals((await plain.user.get("/api/status")).json.build, {
-    release: null,
-    commit: null,
-    releasedAt: null,
-    dev: false,
-  });
-  const build = {
-    release: "use-2026-10-09-1",
-    commit: "0123456789abcdef",
-    releasedAt: "2026-10-09T01:00:00.000Z",
-    dev: false,
-  };
-  const released = await setup({ build });
-  assertEquals((await released.user.get("/api/status")).json.build, build);
-  const dev = await setup({ build: { ...build, release: null, dev: true } });
-  assertFalse((await dev.user.get("/api/status")).json.build.release);
-});
-
-Deno.test("a handed-over key opens the case only if it is the case's own key", async () => {
-  const { dir } = await closedCase();
-  const s = await CaseSession.open(dir, PASS);
-  const key = s.handOverKey();
-  await s.closeSettled();
-  await assertRejects(
-    () => CaseSession.openWithKey(dir, crypto.getRandomValues(new Uint8Array(32))),
-    VaultCorruptError,
-  );
-  const again = await CaseSession.openWithKey(dir, key);
-  try {
-    assertEquals((await again.listDocs()).length, 1);
-  } finally {
-    await again.closeSettled();
-  }
+  assertEquals((await plain.user.get("/api/status")).json.build, { version: null, dev: false });
+  const released = await setup({ build: { version: "0.2.0", dev: false } });
+  assertEquals((await released.user.get("/api/status")).json.build.version, "0.2.0");
+  const dev = await setup({ build: { version: null, dev: true } });
+  assertFalse((await dev.user.get("/api/status")).json.build.version);
 });

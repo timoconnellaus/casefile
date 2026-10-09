@@ -1,59 +1,55 @@
 /**
  * casefile desktop app entry point.
  *
- *   deno task app       — the copy in daily use, at http://127.0.0.1:8217, run by supervisor.ts so
- *                         `deno task release` can restart it into an update without locking the
- *                         case (ADR 22)
+ *   deno task desktop   — build dist/casefile.app (scripts/build_desktop.ts; ADR 2, ADR 24). The
+ *                         copy in daily use comes from a signed GitHub release and updates itself.
  *   deno task dev       — a development run on :8218, opening only cases in .dev/ (ADR 22)
- *   deno task desktop   — build dist/casefile.app with `deno desktop` (ADR 2; macOS, the UI
- *                         files are included in the bundle)
+ *   deno task app       — the app in a browser at http://127.0.0.1:8217 (fallback)
  */
 import { resolve } from "@std/path";
-import { createHandler, snapshotUi } from "./server.ts";
+import { createHandler } from "./server.ts";
 import { AppState } from "./state.ts";
 import { appDetectorFactory, appLlmChecker } from "./detectors.ts";
 import { readBuildInfo } from "./build.ts";
 import { configDir } from "./paths.ts";
-import { controlLine, type FromApp, lines, parseControl, type ToApp } from "./control.ts";
-
-/** A fixed sentence for the unlock screen when the hand-over after an update did not work. */
-const RESUME_FAILED =
-  "casefile was updated but could not reopen the case by itself. Open it again.";
+import { appBundle, relaunch, relaunchIfStale, Updates } from "./updates.ts";
+import { installBundledCli } from "./cli_install.ts";
 
 if (import.meta.main) {
   // `deno task dev` sets CASEFILE_DEV_CASES: that run opens cases only inside it (ADR 22).
   const devCases = Deno.env.get("CASEFILE_DEV_CASES");
+  const build = readBuildInfo(Boolean(devCases));
+  const config = resolve(configDir());
+  const updates = new Updates();
+  const bundle = appBundle();
   const state = new AppState({
-    configDir: resolve(configDir()),
-    build: await readBuildInfo(Boolean(devCases)),
+    configDir: config,
+    build,
     caseRoot: devCases ? resolve(devCases) : undefined,
+    updates,
+    relaunch: bundle
+      ? async () => {
+        await relaunch(bundle);
+        Deno.exit(0);
+      }
+      : undefined,
     detectorFactory: appDetectorFactory,
     llmChecker: appLlmChecker,
   });
+  // Straight after an update was swapped in, this may still be the old version (updates.ts).
+  if (build.version && bundle && await relaunchIfStale(bundle, build.version, config)) Deno.exit(0);
   await state.load();
-
-  // Run by the supervisor (`deno task app`): the first line on stdin says whether to carry on
-  // with a case the app this one replaces had open (ADR 22, amendment).
-  const supervised = Deno.env.get("CASEFILE_SUPERVISED") === "1";
-  const fromSupervisor = supervised ? lines(Deno.stdin.readable) : null;
-  const send = async (msg: FromApp) => {
-    await Deno.stdout.write(new TextEncoder().encode(controlLine(msg)));
-  };
-  if (fromSupervisor) {
-    const first = await fromSupervisor.next();
-    const msg = first.done ? null : parseControl<ToApp>(first.value);
-    if (msg && "resume" in msg && msg.resume) {
-      try {
-        await state.resume(msg.resume);
-      } catch (e) {
-        console.error(`Could not reopen the case after the update: ${(e as Error).name}`);
-        state.lockNotice = RESUME_FAILED;
-      }
+  if (build.version) {
+    // The CLI from this same build, for Claude Code in the case folder (ADR 24).
+    const home = Deno.env.get("HOME");
+    if (home) {
+      await installBundledCli(build.version, { home, configDir: config }).catch((e) =>
+        console.error(`Could not install the casefile CLI: ${(e as Error).message}`)
+      );
     }
+    updates.start(build.version);
   }
-  // A development run reads the UI from disk on each request (reload to see a change); the copy
-  // in daily use keeps the UI it started with until it is restarted (ADR 22).
-  const handler = createHandler(state, devCases ? {} : { readUi: await snapshotUi() });
+  const handler = createHandler(state);
   const desktop = Boolean(Deno.env.get("DENO_SERVE_ADDRESS"));
   // In a desktop build the runtime chooses the port; it is always bound to 127.0.0.1.
   const port = Number(Deno.env.get("CASEFILE_PORT") ?? 8217);
@@ -61,8 +57,7 @@ if (import.meta.main) {
     hostname: "127.0.0.1",
     port,
     onListen: ({ hostname, port }) => {
-      if (supervised) send({ ready: { port } });
-      else if (!desktop) console.log(`casefile is running at http://${hostname}:${port}/`);
+      if (!desktop) console.log(`casefile is running at http://${hostname}:${port}/`);
     },
   }, handler);
   // deno-lint-ignore no-explicit-any
@@ -73,23 +68,6 @@ if (import.meta.main) {
       await state.shutdown();
       Deno.exit(0);
     });
-  }
-  if (fromSupervisor) {
-    (async () => {
-      for await (const line of fromSupervisor) {
-        const msg = parseControl<ToApp>(line);
-        if (msg && "handOff" in msg) {
-          // Closes the case (its writes finish) before replying, so the supervisor can back it
-          // up and the new app can open it.
-          const h = await state.handOff();
-          await send({ handOff: h });
-          Deno.exit(0);
-        }
-      }
-      // The supervisor is gone: stop as Ctrl-C would.
-      await state.shutdown();
-      Deno.exit(0);
-    })();
   }
   // Stopping the app (Ctrl-C, or the system ending it) locks the case and lets its last vault
   // writes finish before the process exits.

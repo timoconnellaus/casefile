@@ -570,24 +570,7 @@ export class CaseSession {
     return s;
   }
 
-  static open(root: string, passphrase: string) {
-    return CaseSession.#open(root, (vaultDir) => Vault.open(vaultDir, passphrase));
-  }
-
-  /**
-   * Open with the data key handed over by the app this one replaces, restarted for an update
-   * (ADR 22, amendment). Otherwise exactly `open`: the lock, the repair, the log.
-   */
-  static openWithKey(root: string, rawKey: Uint8Array) {
-    return CaseSession.#open(root, (vaultDir) => Vault.openWithKey(vaultDir, rawKey));
-  }
-
-  /** The data key, for the restart hand-over only (`Vault.handOverKey`). */
-  handOverKey(): Uint8Array {
-    return this.vault.handOverKey();
-  }
-
-  static async #open(root: string, openVault: (vaultDir: string) => Promise<Vault>) {
+  static async open(root: string, passphrase: string) {
     const paths = casePaths(root);
     if (!isCaseDir(paths.root)) {
       throw new InvalidInputError(`That folder is not a casefile case: ${paths.root}`);
@@ -600,7 +583,7 @@ export class CaseSession {
     let s: CaseSession;
     let stored: CaseSettings | undefined;
     try {
-      const vault = await openVault(paths.vaultDir);
+      const vault = await Vault.open(paths.vaultDir, passphrase);
       store = PublicStore.open(paths.publicDb);
       stored = await vault.readJson<CaseSettings>("settings");
       const settings = { ...DEFAULT_SETTINGS(""), ...stored };

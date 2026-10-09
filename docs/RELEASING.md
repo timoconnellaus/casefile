@@ -1,0 +1,106 @@
+# Releasing casefile
+
+The user runs the desktop app (`~/Applications/casefile.app`). It updates itself from this repo's
+GitHub releases: it checks the latest release when it starts and then hourly, downloads a small
+signed patch, and shows **"casefile X.Y.Z is ready — Restart to update"**. The design and its safety
+reasoning are in [ADR 24](adr/0024-desktop-updates-from-signed-github-releases.md).
+
+## Shipping a change
+
+Merging a pull request into `main` releases it.
+
+1. Open a pull request from your branch. GitHub runs `deno task ci`, and the PR is merged once it
+   is green.
+2. The push to `main` starts the `release` workflow (`.github/workflows/release.yml`). It runs only
+   if the push changed the app (`src/`, `deno.json`, `deno.lock`, the build and release scripts, or
+   the workflow itself); docs-only merges don't release. One release runs at a time; pushes that
+   arrive meanwhile wait, and the latest of them is released next.
+   - **version**: the last `vX.Y.Z` tag, bumped (`scripts/release/next_version.ts`). PATCH by
+     default. If a commit since the last release (the PR title counts) contains `[minor]` or
+     `[major]`, it bumps that instead.
+   - **build** (macOS): `deno task ci`, then `deno task desktop` at that version, then a smoke test
+     that launches the app and checks it reports that version. It zips the app and makes update
+     patches from the last three releases, checking that each one rebuilds this version's runtime
+     byte for byte.
+   - **publish** (the `release` environment, the only job that can read the signing key): signs
+     `latest.json` and publishes the release, which tags the commit. It holds the app zip, the
+     patches, `latest.json` and `install.sh`.
+3. Within an hour, or at the next launch, the app offers the update.
+
+An app older than the last three releases gets no patch. It stays on its version until it is
+reinstalled with `install.sh`. To release without a push (for example, after fixing the setup),
+run the workflow by hand: Actions → release → Run workflow.
+
+## One-time setup
+
+Done once, when the repo is first set up. Until all of it is done, `UPDATE_REPO` or
+`UPDATE_PUBLIC_KEY` in `src/app/update_config.ts` is null, and the app never checks for updates.
+
+1. **The `release` environment.** On GitHub, go to Settings → Environments → New environment and
+   name it `release`. Under Deployment branches and tags, allow only `main`. Required reviewers
+   are optional:
+   - Without them, every merge to `main` reaches the app with no person in between. PRs are also
+     merged automatically once green (`/babysitter`), so anything that gets a green PR merged
+     ships to the app that holds the case.
+   - With the owner as a required reviewer, each release waits for one tap of Approve in GitHub
+     (the mobile app works).
+2. **The signing key.** In a checkout of `main`, run:
+
+   ```sh
+   deno task release:keygen | gh secret set CASEFILE_UPDATE_SIGNING_KEY --env release
+   ```
+
+   This writes the public key into `src/app/update_config.ts`. The private key goes straight into
+   the environment secret and never touches the disk or the terminal. Keep no other copy. If the
+   key is ever replaced, every installed app refuses updates until it is reinstalled.
+3. **The repository.** Set `UPDATE_REPO = "timoconnellaus/casefile"` in
+   `src/app/update_config.ts`. Commit both lines through a PR.
+4. **Pin the actions.** In `release.yml`, replace `actions/checkout@v4`, `denoland/setup-deno@v2`,
+   `actions/upload-artifact@v4` and `actions/download-artifact@v4` with their full commit SHAs. A
+   moved tag must not be able to change what runs next to the signing key.
+5. **The first release.** Merging the setup PR (steps 2–4) releases deno.json's `version` (bump it
+   in that PR, e.g. to `0.2.0`). It has no patches, because there is nothing to patch from.
+6. **Install it.** Quit any casefile that is running. Then:
+
+   ```sh
+   curl -fsSL https://github.com/timoconnellaus/casefile/releases/latest/download/install.sh | sh
+   ```
+
+   Downloaded with curl, the app carries no quarantine flag, so macOS opens it without an Apple
+   Developer ID. Updates after that arrive as signed patches inside the app.
+7. **Check the first real update.** Merge a small change (it releases `0.2.1`) and watch for:
+   - the app offering it;
+   - **Restart to update** bringing it back as 0.2.1;
+   - a backup in `~/Library/Application Support/casefile/backups/<case>/`;
+   - `casefile --help` in a terminal still working.
+
+   This is the first time the update requests go to github.com, through its redirect to the
+   release file host. A local test (below) can't check that part.
+
+## Testing an update locally
+
+The full path has been tested against a local HTTPS server: signature, patch hash, staging, the
+one-click restart and the CLI install. To repeat it:
+
+1. Make a throwaway key with `generateKeys()` from `scripts/release/signing.ts`. Make a test CA and
+   a leaf certificate for `127.0.0.1` (`basicConstraints=CA:FALSE`).
+2. In a copy of the repo with the test public key in `update_config.ts`, build two versions with
+   `deno run … scripts/build_desktop.ts`, changing `version` in `deno.json` between them.
+3. `bsdiff old.app/…/libruntime.dylib new.app/…/libruntime.dylib patch-A-to-B.bin`, then
+   `CASEFILE_UPDATE_SIGNING_KEY=<test key> deno run … scripts/release/manifest.ts --version B
+   --dir serve --patch A=patch-A-to-B.bin`.
+4. Serve `serve/` over HTTPS. Launch the old app's `Contents/MacOS/laufey_webview` with
+   `CASEFILE_UPDATE_URL=https://127.0.0.1:<port>`, `DENO_CERT=<ca.crt>`, and a scratch `HOME` and
+   `CASEFILE_CONFIG_DIR` (so it doesn't touch the real CLI or config). Put a stub `open` first on
+   `PATH` that relaunches the app with the same environment.
+
+## Known Deno issues (2.9.7)
+
+- **Before 2.9.5,** packaged apps couldn't verify a signed manifest at all (denoland/deno#36150).
+  `scripts/build_desktop.ts` refuses older Denos.
+- **The launch that swaps an update in still runs the old runtime,** and that launch marks the
+  update good on the new version's behalf. The app works around the first part by relaunching once
+  (`relaunchIfStale` in `src/app/updates.ts`). The second part means Deno's automatic rollback
+  can't catch a new version that fails to start. That is why the release smoke-tests the app
+  before publishing it. If a published version still won't start, ship a fixed version and
+  reinstall with `install.sh`. Worth reporting upstream.

@@ -1,9 +1,16 @@
 // The app shell: AppHeader + <main>, routing, the To-check count, ⌘K, lock and focus handling.
 import { clear, h } from "../dom.js";
 import { api } from "../lib.js";
-import { toCheckCount, windowTitle } from "../model.js";
+import { toCheckCount, updateReadyNote, updateRolledBackNote, windowTitle } from "../model.js";
 import { DEFAULT_HASH, matchRoute, redirectFor, UNLOCK } from "../routes.js";
-import { announce, clearLive, EmptyState, liveRegion, showToast } from "../components/index.js";
+import {
+  announce,
+  clearLive,
+  confirmDialog,
+  EmptyState,
+  liveRegion,
+  showToast,
+} from "../components/index.js";
 import { AppHeader } from "./header.js";
 import { openPalette } from "./palette.js";
 
@@ -20,34 +27,54 @@ async function fetchToCheck() {
  * @param {HTMLElement} root
  */
 /**
- * casefile restarted into an update while this page was open (ADR 22): the server and the screens
- * it serves are new, this page is not. Say so, and let the user reload when they are ready, so
- * nothing they are typing is lost.
+ * A newer casefile is downloaded and waiting (ADR 24): offer to restart into it. Restarting closes
+ * the case, so it asks first; the new version asks for the passphrase. Also says once if the last
+ * update failed to start and casefile went back.
  */
-function watchForUpdate(getStatus) {
-  const id = (st) => (st?.build ? `${st.build.release}|${st.build.commit}` : null);
-  let seen = id(getStatus());
-  let banner = null;
-  const check = async (st) => {
-    const now = id(st);
-    if (!now) return;
-    if (seen === null) seen = now;
-    if (now === seen || banner) return;
-    banner = h(
+function watchForUpdate() {
+  let bar = null;
+  let rollbackShown = false;
+  const check = (st) => {
+    const u = st?.update;
+    if (!u) return;
+    if (u.rolledBack && !rollbackShown) {
+      rollbackShown = true;
+      showToast(updateRolledBackNote(), { tone: "danger" });
+    }
+    if (!u.ready || bar) return;
+    const restart = async () => {
+      const ok = await confirmDialog(
+        `Restart to update to casefile ${u.ready}?`,
+        "casefile closes the case, saving everything, and opens the new version. You'll need " +
+          "your passphrase to open the case again.",
+        "Restart now",
+      );
+      if (!ok) return;
+      try {
+        await api("POST", "/api/update/restart");
+        bar.replaceChildren(h("span", {}, "Restarting casefile…"));
+      } catch (e) {
+        showToast(String(e?.message ?? e), { tone: "danger" });
+      }
+    };
+    // Restarting needs the open case's session; locked, quitting and reopening does the same.
+    bar = h(
       "div",
       { class: "update-note", role: "status" },
-      h("span", {}, "casefile was updated. Reload the page to use the new version."),
-      h("button", { type: "button", class: "btn", onclick: () => location.reload() }, "Reload"),
+      h("span", {}, st.signedIn ? updateReadyNote(u.ready) : updateReadyLockedNote(u.ready)),
+      st.signedIn
+        ? h("button", { type: "button", class: "btn", onclick: restart }, "Restart to update")
+        : null,
     );
-    document.body.prepend(banner);
-    announce("casefile was updated. Reload the page to use the new version.");
+    document.body.prepend(bar);
+    announce(updateReadyNote(u.ready));
   };
   const poll = async () => {
     try {
-      await check(await api("GET", "/api/status"));
-    } catch { /* restarting, or locked: try again later */ }
+      check(await api("GET", "/api/status"));
+    } catch { /* not answering: try again later */ }
   };
-  setInterval(poll, 30_000);
+  setInterval(poll, 5 * 60_000);
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) poll();
   });
@@ -252,7 +279,7 @@ export function startApp(root) {
     return rendering;
   }
 
-  const checkUpdate = watchForUpdate(() => status);
+  const checkUpdate = watchForUpdate();
   window.addEventListener("hashchange", () => {
     clearLive(); // an old result ("Opening case.") shouldn't linger on the next screen
     schedule();

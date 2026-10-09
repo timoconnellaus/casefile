@@ -97,3 +97,54 @@ have no person in it. docs/RELEASING.md puts that choice to the owner during set
 **Set up 2026-10-09:** the owner chose fully automatic releases. The `release` environment
 deploys from `main` only and has no required reviewers. The signing key was generated straight
 into its secret.
+
+## Amendment: casefile downloads updates itself; Deno only stages them (2026-10-09)
+
+**What went wrong (issue #5).** No installed app ever updated. Deno 2.9.7's `Deno.autoUpdate`
+(`cli/rt/desktop.rs`) fetches `<url>/latest.json` and `<url>/<patch>` with `redirect: "error"`.
+Every GitHub release download redirects twice: `releases/latest/download/X` to
+`releases/download/vX.Y.Z/X`, then to a signed, short-lived URL on
+`release-assets.githubusercontent.com`. So each check threw on the first redirect, and Deno only
+logged it (`console.warn`), which a packaged app shows nowhere. A packaged 0.2.0 build pointed at
+the real URL prints `Deno.autoUpdate: check failed: Fetch failed: Encountered redirect while
+redirect mode is set to 'error'`. The earlier end-to-end test used a server that didn't redirect.
+No URL serves both files without a redirect (the asset URLs are signed per file and expire), so
+pointing the app somewhere else wasn't an option.
+
+**Decision.** casefile downloads the update itself and uses `Deno.autoUpdate` only to stage it
+(`src/app/updates.ts`):
+
+1. It fetches `latest.json`, following at most five redirects. Once a URL is HTTPS, every
+   redirect from it must be HTTPS too.
+2. It checks the Ed25519 signature with the built-in key, as Deno does, before it reads anything
+   from the manifest. If the version is new and there is a patch from this version, it downloads
+   the patch the same way and checks its SHA-256 against the signed manifest.
+3. It calls `Deno.autoUpdate` with the same base URL. While that call runs, a fetch of exactly
+   those two URLs returns the bytes casefile already checked. Any other URL under the base gets a
+   404, and every other fetch goes to the network unchanged. Deno then checks the signature and the
+   hash again and stages the patch.
+
+**The trust model is unchanged.** The signature and the hash are checked twice, once by casefile
+and once by Deno, over the same bytes. Nothing is staged that Deno itself wouldn't stage. The hosts
+change. Downloads now come from `github.com` and whatever host it redirects release files to
+(today `release-assets.githubusercontent.com`). There is deliberately no host allow-list: GitHub
+has moved that host before, and an allow-list would bring back the silent failure. Integrity comes
+from the signature and the hash, not the host.
+
+**Visible and on demand.** casefile checks soon after it starts, then hourly, and when the user
+presses **Check for updates** in Settings (`POST /api/update/check`, signed in only, like the
+restart). `/api/status` `update` now also says `checking`, `lastCheck` (an ISO time) and
+`lastError`. `lastError` is a fixed sentence plus the failing host or HTTP status. Query strings
+are removed, so GitHub's signed download tokens never appear in it. It holds nothing about any
+case. At start, casefile calls `Deno.autoUpdate` with no URL, only to hear about a rollback.
+
+**Consequences.**
+- This depends on Deno 2.9.7's `autoUpdate` using the global `fetch`, which it does (checked in a
+  real `deno desktop` build). If a later Deno stops doing that, Deno fetches from the network
+  itself, the redirect fails as before, and the check reports "couldn't be set up to install"
+  after 30 seconds instead of failing silently.
+- Every copy released before this change still has the broken check, so it can't update to this
+  one. The installed app must be reinstalled once with `install.sh` (docs/RELEASING.md). Updates
+  work from then on.
+- The open item under Consequences above (the first live update through GitHub's redirect) is
+  closed: it failed, for the reason above.

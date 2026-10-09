@@ -32,6 +32,7 @@ import {
   STATES,
   toCheckCount,
   tokenText,
+  updateCheckNote,
 } from "../src/app/ui/model.js";
 import { matchRoute, NAV, redirectFor, ROUTES } from "../src/app/ui/routes.js";
 import { EXTERNAL_LINKS } from "../src/app/links.ts";
@@ -402,4 +403,24 @@ Deno.test("IBM Plex is bundled as real woff2 files with the OFL", async () => {
   }
   const ofl = await Deno.readTextFile(join(UI, "fonts", "OFL.txt"));
   assert(ofl.includes("SIL OPEN FONT LICENSE Version 1.1"));
+});
+
+Deno.test("Settings says what the last update check found", () => {
+  const u = { enabled: true, ready: null, checking: false, lastCheck: null, lastError: null };
+  const at = "2026-10-09T02:00:00.000Z";
+  assertEquals(updateCheckNote({ ...u, enabled: false }), null);
+  assertEquals(updateCheckNote(u), "casefile hasn't checked for updates yet.");
+  assertEquals(updateCheckNote({ ...u, checking: true }), "Checking for updates…");
+  assertEquals(
+    updateCheckNote({ ...u, lastCheck: at }, () => "9 Oct 13:00"),
+    "casefile is up to date (checked 9 Oct 13:00).",
+  );
+  assertEquals(
+    updateCheckNote({ ...u, lastCheck: at, lastError: "github.com answered 503." }, () => "then"),
+    "Last check (then) failed: github.com answered 503.",
+  );
+  assertEquals(
+    updateCheckNote({ ...u, lastCheck: at, ready: "0.3.0" }),
+    "casefile 0.3.0 is ready. Restart to update.",
+  );
 });

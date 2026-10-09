@@ -81,7 +81,22 @@ Done once, when the repo is first set up. Until all of it is done, `UPDATE_REPO`
    - `casefile --help` in a terminal still working.
 
    This is the first time the update requests go to github.com, through its redirect to the
-   release file host. A local test (below) can't check that part.
+   release file host. A local test (below) can't check that part. (Releases before the fix for
+   issue #5 couldn't follow that redirect at all: see "Reinstalling once after issue #5".)
+
+## Seeing what the updater did
+
+Settings → **casefile updates** shows when casefile last checked and whether the check worked. If
+it failed, it says why. **Check for updates** checks now, and offers **Restart to update** if a
+version is ready. The same fields (`checking`, `lastCheck`, `lastError`) are in `update` from
+`GET /api/status`.
+
+## Reinstalling once after issue #5
+
+Releases up to and including the one before the fix for issue #5 never update, because Deno's
+updater refuses GitHub's redirects (ADR 24, last amendment). Once a release with the fix is out,
+quit casefile and reinstall it once with `install.sh` (step 6 above). The case and the app's
+folder are kept. From that version on, updates arrive by themselves.
 
 ## Testing an update locally
 
@@ -95,12 +110,21 @@ one-click restart and the CLI install. To repeat it:
 3. `bsdiff old.app/…/libruntime.dylib new.app/…/libruntime.dylib patch-A-to-B.bin`, then
    `CASEFILE_UPDATE_SIGNING_KEY=<test key> deno run … scripts/release/manifest.ts --version B
    --dir serve --patch A=patch-A-to-B.bin`.
-4. Serve `serve/` over HTTPS. Launch the old app's `Contents/MacOS/laufey_webview` with
+4. Serve `serve/` over HTTPS, redirecting the way GitHub does:
+   `/releases/latest/download/X` → `/releases/download/vB/X` → `https://localhost:<port>/asset/X?token=…`
+   (another host). Use the `/releases/latest/download` URL as `CASEFILE_UPDATE_URL`.
+   `releaseServer` in `tests/helpers/app.ts` does the same over HTTP for the unit tests. Launch the old app's `Contents/MacOS/laufey_webview` with
    `CASEFILE_UPDATE_URL=https://127.0.0.1:<port>`, `DENO_CERT=<ca.crt>`, and a scratch `HOME` and
    `CASEFILE_CONFIG_DIR` (so it doesn't touch the real CLI or config). Put a stub `open` first on
    `PATH` that relaunches the app with the same environment.
 
 ## Known Deno issues (2.9.7)
+
+- **`Deno.autoUpdate` refuses redirects** (`redirect: "error"`), and every GitHub release
+  download redirects. It logs the failure to the console only. casefile downloads and checks the
+  files itself and hands Deno the checked bytes (ADR 24, last amendment). The Deno part of this
+  can be tried on Linux: `deno desktop` builds a Linux app there, which runs under `xvfb-run`
+  once `libwebkit2gtk-4.1-0` is installed.
 
 - **Before 2.9.5,** packaged apps couldn't verify a signed manifest at all (denoland/deno#36150).
   `scripts/build_desktop.ts` refuses older Denos.

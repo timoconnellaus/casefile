@@ -65,6 +65,8 @@ export function caseRoutes({ state, s }: RouteContext): Route[] {
       setTimeout(() => state.restartForUpdate().catch((e) => console.error(e)), 50);
       return Promise.resolve({ ok: true });
     }),
+    // Signed in only (Settings → casefile updates): check now, and answer with the status after.
+    route("POST", "/api/update/check", async () => ({ update: await state.checkForUpdate() })),
     // Open route. With `recoveryKey: true` a recovery key is made and returned, once.
     route("POST", "/api/case/create", async ({ req, body }) => {
       state.requireNoOtherSession(req);

@@ -464,6 +464,21 @@ export function updateReadyLockedNote(version) {
   return `casefile ${version} is ready. Quit casefile and open it again to update.`;
 }
 
+/**
+ * The result of the last update check, for Settings (ADR 24), from `/api/status` `update`.
+ * @param {{enabled: boolean, ready: string|null, checking?: boolean, lastCheck?: string|null,
+ *   lastError?: string|null}|null|undefined} update
+ * @param {(iso: string) => string} [when] how to show the time of the last check
+ */
+export function updateCheckNote(update, when = (iso) => iso) {
+  if (!update?.enabled) return null;
+  if (update.checking) return "Checking for updates…";
+  if (update.ready) return updateReadyNote(update.ready);
+  if (!update.lastCheck) return "casefile hasn't checked for updates yet.";
+  if (update.lastError) return `Last check (${when(update.lastCheck)}) failed: ${update.lastError}`;
+  return `casefile is up to date (checked ${when(update.lastCheck)}).`;
+}
+
 export function updateRolledBackNote() {
   return "The last casefile update didn't start, so casefile went back to the version before it.";
 }

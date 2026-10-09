@@ -1,7 +1,7 @@
 # 14. Jev (TypeSafe) for judgements, only on text with names replaced
 
 Date: 2026-10-07
-Status: Accepted (not yet implemented)
+Status: Accepted; implemented (see the amendment)
 
 ## Context
 
@@ -103,3 +103,91 @@ re-evaluation.
   the synthetic fixtures.
 - Not legal advice. This records the project's reading of PD-AI against TypeSafe's published
   terms as at 2026-10-07.
+
+## Amendment: what was built (2026-10-09)
+
+The `Judge` interface and its three backends are built in `src/core/judge/`. Where this differs
+from the decision above, this amendment says so and why.
+
+**One reviewable module.** `judge/questions.ts` holds every question (instructions and criteria in
+Jev's typed shape), the state fields each reads, the local classifier's recipe, the threshold and
+calibration record per backend, the wording of each flag, and the policy that turns an answer into
+a flag. Three questions are built: `feeling_or_opinion` (a sentence of a draft gives the witness's
+feelings or opinions), `fair_reading` (Claude's note, or a cited draft sentence, against its cited
+lines) and `origin_hint` (a shared document's title and first 15 lines; it flags only when the
+judged origin is stricter than the one the user gave). The other checks in the Context list (direct
+quote, law to check, quasi-identifiers) are not built. Arithmetic, dates, lookups and every rule
+stay in code: the existing deterministic checks are unchanged.
+
+**What a judge may see: the same for every backend.** The decision allowed the local backends to
+see originals where a check needs one. None of the built checks needs one, so all three backends
+get the same text, built only by `judge/texts.ts`: document text only from documents shared with
+Claude now, as `publishedView` gives it; Claude's notes and draft sentences as public.db holds
+them; and a leak check of every field against who's who as it is now (values the cited documents
+leave as written are allowed, as for Claude). An item citing a document that is withheld, exposed
+or not yet reviewed is not sent at all, and the user sees why. `JudgeState` is a branded type only
+`texts.ts` constructs, so a backend cannot be handed anything else by mistake.
+
+**Backends.**
+
+- *On this computer* (the default): `Xenova/nli-deberta-v3-xsmall` (ONNX q8, about 87 MB), an NLI
+  model, pinned by commit and SHA-256 of each file and served from memory exactly as the name
+  finder is (ADR 12; the pinned loader in `detect/ner.ts` is now shared, `withPinnedModel`). It
+  was chosen over `mobilebert-uncased-mnli` and `distilbert-base-uncased-mnli` on the evaluation
+  set. NLI cannot read instructions, so each question carries a recipe: the claim against its
+  cited lines (`pair`), one fixed hypothesis (`single`), or one hypothesis per option (`labels`).
+  Labels such as `{{father.first}}` are shown to it as plain role words ("father").
+- *A language model*: the one set up under Finding names, under ADR 12's rules unchanged (local
+  confirmed, or `trustLocalServer`, or `allowRemote`; checked before every check; no redirects; no
+  echo). It gets the same questions as Jev and answers in JSON. Requests now send
+  `"reasoning_effort": "none"`: with thinking on, `qwen/qwen3.6-35b-a3b` in LM Studio did not
+  finish a chunk within 120 s; without, it answers in about 2–20 s. A server that rejects
+  `response_format` or `reasoning_effort` (400) is asked again without one, then the other, then
+  both, and the working combination is remembered. The name pass (`LlmDetector`) shares this
+  client (`ChatCompletions`).
+- *Jev*: `POST https://api.typesafe.ai/v1/systemone` with the model pinned to `jev-1.13.0` (not
+  the `jev-latest` alias, which could change answers without a code change), no redirects, one
+  retry on 429/529, and no echo of replies.
+
+**Jev's conditions, as built.** Off by default. Turning it on needs a saved key and the typed
+phrase "send to Jev" (checked by the server, not only the screen). Settings links TypeSafe's
+privacy policy and legal terms and says when casefile last checked them (`JEV_TERMS.checked`,
+2026-10-07). The key is kept in the vault's settings (`judge.jevKey`), used only by the server, and
+never returned by any API (Settings shows only whether one is saved), logged or written to
+public.db; a test scans every response, the log, and every file in the case and config folders for
+it. Turning Jev on and off, and saving or removing the key, are logged; the Court summary lists Jev
+as a second AI tool with the periods it was on and how many questions it answered, and says it
+never saw originals or withheld documents.
+
+**Logging: counts only, stricter than the decision.** The decision said every call would be logged
+"by type of check and document id". It is logged instead as one `judge_ran` row per item with only
+`backend`, `judgements` and `flags` (and `failed` when it failed). An item id next to a flag count
+would tell Claude, who can read the log, what the extra check thought of its work. "Test the
+connection" sends one fixed invented sentence and logs `judge_tested {backend, ok}`.
+
+**Flags only.** A flag is a `JudgeFlag` (`states.ts`), never a `CheckRow`, so it cannot make an
+item "Can't check". The judge writes nothing but its log row; nothing that marks an item checked,
+adopted or shared imports it (a test checks the import graph, and that public.db, every state and
+the To-check queue are unchanged after flags). Flags appear on request ("Ask casefile's extra
+check") on chronology entries and evidence by Claude, on paragraphs being adopted or rewritten, and
+on shared documents; they are never computed in the background.
+
+**Calibration.** `tests/fixtures/judge_eval.ts` is a labelled synthetic set (36 sentences, 28 claim
+and citation pairs, 18 document openings). `deno task judge-eval <backend>` scores a backend and
+picks the threshold with the best F1 (midpoint of the widest gap on ties); the results are recorded
+next to the questions, and `tests/judge_calibration_test.ts` re-runs them when the model is
+available. On 2026-10-09:
+
+| Question | On this computer (deberta-v3-xsmall) | Language model (qwen3.6-35b-a3b, LM Studio) | Jev |
+|---|---|---|---|
+| feeling or opinion | threshold 0.998: precision 85%, recall 94% | 0.5: 100%, 100% | not calibrated |
+| fair reading | 0.7027: precision 88%, recall 100% | 0.525: 93%, 93% | not calibrated |
+| origin hint | 0.5893: precision 100%, recall 92% | 0.495: 100%, 83% | not calibrated |
+
+These figures are optimistic: the set is small, and the local recipes' hypotheses were chosen on it.
+Jev has not been run on it (no key was available); its thresholds are a neutral 0.5 and Settings
+says its checks are not tuned yet. The language model's figures hold only for that model.
+
+**Open.** Calibrating Jev (`TYPESAFE_API_KEY=… deno task judge-eval jev`, billed to that key) and a
+larger, held-out evaluation set; whether the extra checks should use their own language model
+setting rather than the one under Finding names; the unbuilt checks listed above.

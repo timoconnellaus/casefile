@@ -111,6 +111,20 @@ state, the code value is in `code`; the UI words come from `src/app/ui/model.js`
 - **casefile's checks** (`CheckRow`): deterministic comparisons of a claim with the lines it cites:
   every person in the claim is in the cited lines, dates and numbers match, feeling words and
   placeholders are pointed out (`claimcheck.ts`). They only flag; they never mark anything checked.
+- **Extra checks** (Settings → "Extra checks"): typed judgements about Claude's work and shared
+  documents, asked on request ("Ask casefile's extra check"): does a sentence give feelings or
+  opinions, is a note a fair reading of its cited lines, may a shared document have come from
+  somewhere stricter than the user said. They run "On this computer" (the default), on "The language
+  model on this computer" set up under Finding names, or on Jev, or are off. They only flag
+  (`JudgeFlag`, "casefile's extra check thinks…"); they never mark anything checked, adopted or
+  shared, and are logged as counts only (ADR 14).
+- **Judge**: the interface behind extra checks (`src/core/judge/`): named questions (`noul`,
+  `choice`, `score`) about a `JudgeState`, answered with probabilities. A `JudgeState` is built only
+  from what Claude may see (shared documents' text with names replaced, Claude's notes and drafts),
+  leak-checked. Questions, thresholds per backend and their calibration live in `questions.ts`.
+- **Jev**: TypeSafe AI's hosted decision model, one judge backend. Off by default; turned on in
+  Settings with a key (vault only, never shown or logged) and the typed phrase "send to Jev"; listed
+  by the Court summary as a second AI tool (ADR 14).
 - **Work states** (`WorkState`, for chronology entries, evidence links and issue descriptions):
   - **To check** (`to_check`): not checked by the user.
   - **Checked against source** (`checked`): the user compared it with the cited lines and ticked

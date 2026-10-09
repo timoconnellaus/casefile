@@ -884,7 +884,7 @@ export default async function view(main, _params, ctx) {
       [
         "jev",
         "Jev by TypeSafe",
-        `${J.jev.summary}${J.backend === "jev" ? "" : " Turn it on below."}${tuned("jev")}`,
+        `${J.jev.summary}${tuned("jev")}`,
         J.backend !== "jev",
       ],
     ];

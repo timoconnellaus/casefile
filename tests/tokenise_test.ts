@@ -42,6 +42,22 @@ Deno.test("findLeaks ignores values inside tokens and ignored strings", () => {
   assertEquals(findLeaks("the School gate", r, ["school"]), []);
 });
 
+Deno.test("findLeaks sees every change to who's who, however it is made (cached matcher)", () => {
+  // The variants the leak check looks for are remembered between documents (a document list
+  // checks every one). A value learnt since must be found at once, or the check fails open.
+  const r = reg();
+  const text = "{{mother}} saw Danny and Mrs Ellery at Banksia Crescent.";
+  assertEquals(findLeaks(text, r), []);
+  r.update("father", { aliases: ["Danny"] }); // through the registry
+  assertEquals(findLeaks(text, r).map((l) => l.text), ["Danny"]);
+  r.list().find((e) => e.role === "mother")!.forms.surname = "Ellery"; // in place
+  assertEquals(findLeaks(text, r).map((l) => l.text), ["Danny", "Mrs Ellery"]);
+  r.add({ kind: "address", full: "14 Banksia Crescent, Gerringong NSW 2534" }); // a new entity
+  assertEquals(findLeaks(text, r).map((l) => l.text), ["Danny", "Mrs Ellery", "Banksia Crescent"]);
+  r.remove("father");
+  assertEquals(findLeaks(text, r).map((l) => l.text), ["Mrs Ellery", "Banksia Crescent"]);
+});
+
 Deno.test("tokeniseKnown replaces unambiguous values and reports ambiguous ones", () => {
   const r = reg();
   const { text, ambiguous } = tokeniseKnown(

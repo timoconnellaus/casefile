@@ -222,6 +222,8 @@ export function splitPersonName(full: string): Pick<EntityForms, "first" | "surn
 
 export class EntityRegistry {
   #entities = new Map<string, Entity>();
+  /** See `derived`. */
+  #derived: { entities: Entity[]; key: string; values: Map<string, unknown> } | null = null;
 
   constructor(entities: Entity[] = []) {
     for (const e of entities) this.#insert(structuredClone(e));
@@ -514,6 +516,30 @@ export class EntityRegistry {
    * which the leak check and detection use but tokenising does not.
    */
   variants(opts: { leak?: boolean } = {}): VariantMatch[] {
+    return this.derived(`variants:${Boolean(opts.leak)}`, () => this.#variants(opts))
+      .map((v) => ({ ...v }));
+  }
+
+  /**
+   * `build()`, remembered while every entity is the same object with the same contents. The leak
+   * check runs per document and needs the same variants each time (a document list checks every
+   * document). Entities are changed in place in many places, so the contents are compared as
+   * well: anything learnt since (a nickname, a new form) builds afresh, and the check never runs
+   * against stale values (ADR 6). The result is shared; callers must not change it.
+   */
+  derived<T>(name: string, build: () => T): T {
+    const entities = [...this.#entities.values()];
+    const c = this.#derived;
+    const same = c !== null && c.entities.length === entities.length &&
+      c.entities.every((e, i) => e === entities[i]);
+    const key = JSON.stringify(entities);
+    if (!same || c.key !== key) this.#derived = { entities, key, values: new Map() };
+    const values = this.#derived!.values;
+    if (!values.has(name)) values.set(name, build());
+    return values.get(name) as T;
+  }
+
+  #variants(opts: { leak?: boolean }): VariantMatch[] {
     const out: VariantMatch[] = [];
     for (const e of this.#entities.values()) {
       out.push({ entity: e, form: "full", text: e.forms.full });

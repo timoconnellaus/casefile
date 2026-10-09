@@ -1120,6 +1120,16 @@ export class PublicStore {
     );
   }
 
+  /**
+   * Replace a note's text. Only the app's re-check of the user's own notes uses it (a value learnt
+   * later becomes its token, `typedtext.ts`); the user and Claude add and delete notes.
+   */
+  updateNoteBody(id: number, body: string) {
+    this.getNote(id);
+    if (!body.trim()) throw new InvalidInputError("Note is empty");
+    this.#run("UPDATE notes SET body = ? WHERE id = ?", body, id);
+  }
+
   listNotes(target_type?: string, target_id?: string): NoteRow[] {
     if (target_type && target_id) {
       return this.#all(

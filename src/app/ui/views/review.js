@@ -28,6 +28,7 @@ import {
   linkEntities,
   listShortcuts,
   MarkTag,
+  NAME_FINDER_OFF,
   OriginalFile,
   Segmented,
   showToast,
@@ -892,6 +893,10 @@ class Review {
         ),
         chips,
       ),
+      // No detector looks for names (declined, or it couldn't be set up): say so (ADR 26).
+      this.data.nameDetection === false && this.data.status !== "published"
+        ? h("p", { class: "rv-list-empty small muted", role: "note" }, NAME_FINDER_OFF)
+        : null,
       list,
       h(
         "div",

@@ -904,6 +904,13 @@ a.btn.btn-danger:hover {
   gap: var(--sp-2);
 }
 
+/* A radio choice with its explanation (the name finder question). */
+.choice {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: baseline;
+}
+
 .dialog-actions {
   margin-top: var(--sp-5);
 }

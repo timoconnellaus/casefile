@@ -1,5 +1,6 @@
 // Route handlers are uniformly async, whether or not a given one awaits.
 // deno-lint-ignore-file require-await
+import { typedTextLabel, type TypedTextRecheck } from "../../core/typedtext.ts";
 import { ColourTakenError, type Entity, type EntityKind } from "../../core/entities.ts";
 import {
   aliasImpact,
@@ -176,9 +177,26 @@ export function entitiesRoutes({ s, show, state }: RouteContext): Route[] {
       const r = await changeEntity(s(), params.role, change);
       // Only the role: which attributes changed (a colour, the safety flag) is not Claude's business.
       s().log("user", "entity_updated", { role: r.role });
-      return { ok: true, role: r.role, descriptionsCleared: r.descriptionsCleared };
+      return {
+        ok: true,
+        role: r.role,
+        descriptionsCleared: r.descriptionsCleared,
+        typedText: typedTextView(r.typedText),
+      };
     }),
   ];
+}
+
+/**
+ * What re-checking the text in public.db found after a change to who's who (ADR 27), in the
+ * words People shows: item labels only, never the values.
+ */
+function typedTextView(r: TypedTextRecheck | null) {
+  if (!r) return null;
+  return {
+    replaced: r.replaced.map((i) => ({ kind: i.kind, id: i.id, label: typedTextLabel(i) })),
+    left: r.left.map((i) => ({ kind: i.kind, id: i.id, label: typedTextLabel(i), why: i.why })),
+  };
 }
 
 /** A who's who row (`GET /api/people`). */

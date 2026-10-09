@@ -1210,6 +1210,22 @@ const LABELS: Record<string, Label> = {
         : null;
     },
   ],
+  name_finder_chosen: [
+    "settings",
+    (d) =>
+      d.on
+        ? "You turned on the name finder"
+        : d.asked_on
+        ? "You chose the name finder, but it couldn’t be set up; it stayed off"
+        : "You chose to leave the name finder off",
+  ],
+  typed_text_rechecked: [
+    "people",
+    (d) =>
+      `casefile replaced a name it now knows in ${
+        typeof d.count === "number" ? plural(d.count, "item") : "items"
+      } you wrote`,
+  ],
   settings_changed: [
     "settings",
     () => "You changed the case settings",
@@ -1217,6 +1233,13 @@ const LABELS: Record<string, Label> = {
       join(
         typeof d.ner === "boolean" ? `Name finder ${d.ner ? "on" : "off"}` : null,
         d.llm_host === null ? "No language model" : d.llm_host ? "Language model set" : null,
+        d.reasoning_effort === "none"
+          ? "Language model thinking off"
+          : d.reasoning_effort === "default"
+          ? "Language model thinking left to the server"
+          : typeof d.reasoning_effort === "string"
+          ? `Language model thinking ${d.reasoning_effort}`
+          : null,
         typeof d.idle_lock_minutes === "number"
           ? `Locks after ${d.idle_lock_minutes} min idle`
           : null,

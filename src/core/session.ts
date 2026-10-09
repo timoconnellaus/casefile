@@ -3,6 +3,8 @@ import { type CasePaths, casePaths, isCaseDir, writeCaseScaffold } from "./case.
 import { CaseLock } from "./caselock.ts";
 import { detect, type NewEntityProposal, type ProposedSpan } from "./detect/pipeline.ts";
 import type { Detector } from "./detect/types.ts";
+import type { ReasoningEffort } from "./detect/llm.ts";
+import { recheckTypedText, type TypedTextRecheck } from "./typedtext.ts";
 import {
   type Entity,
   type EntityKind,
@@ -93,6 +95,8 @@ export interface LlmSettings {
   allowRemote?: boolean;
   /** User has confirmed that an uninspectable local server runs the model on this computer. */
   trustLocalServer?: boolean;
+  /** `reasoning_effort` sent to the server (default "none"; "default" sends none). */
+  reasoningEffort?: ReasoningEffort;
 }
 
 /** The three conditions a commercial Claude plan must meet (PD-AI 5.5), as the user confirmed. */
@@ -107,6 +111,11 @@ export interface CaseSettings {
   claudeSetup: ClaudeSetup;
   llm: LlmSettings | null;
   nerEnabled: boolean;
+  /**
+   * When the user answered the name finder question (ADR 26). Unset: not asked yet, so the app
+   * asks the next time the case is opened (unless the name finder is already on).
+   */
+  nameFinderAsked?: string;
   nextDocNumber: number;
   /** The next import batch number (`B1`, `B2`…); absent in cases made before batches. */
   nextBatchNumber?: number;
@@ -892,9 +901,13 @@ export class CaseSession {
   /**
    * Save who's who. Every change to it re-checks every shared document (ADR 7, exposures): any
    * that now shows a known value as written (e.g. a nickname just added) is withdrawn at once.
-   * `skipExposureCheck`: a document being published right now (its publish checks it).
+   * `skipExposureCheck`: a document being published right now (its publish checks it). Then the
+   * rest of the text in public.db (notes, chronology, issues, paragraphs…) is re-checked the same
+   * way (ADR 27): the user's own text has the value replaced by its token; the rest is listed.
    */
-  async saveRegistry(opts: { skipExposureCheck?: string } = {}) {
+  async saveRegistry(
+    opts: { skipExposureCheck?: string } = {},
+  ): Promise<TypedTextRecheck | null> {
     await this.vault.writeJson("entities", this.registry.toJSON());
     this.store.setEntities(
       this.registry.list().map((e) => ({
@@ -908,6 +921,7 @@ export class CaseSession {
     );
     await this.#followRoles();
     await withdrawExposed(this, { skip: opts.skipExposureCheck });
+    return await recheckTypedText(this);
   }
 
   /**
@@ -2299,10 +2313,13 @@ export class CaseSession {
    * Change an entity. Runs under the entity lock; the registry changes before the first await
    * (people.ts `changeEntity` relies on that), and saving it runs the exposure check.
    */
-  updateEntity(role: string, patch: Parameters<EntityRegistry["update"]>[1]): Promise<void> {
+  updateEntity(
+    role: string,
+    patch: Parameters<EntityRegistry["update"]>[1],
+  ): Promise<TypedTextRecheck | null> {
     return this.withEntityLock(async () => {
       this.registry.update(role, patch);
-      await this.saveRegistry();
+      return await this.saveRegistry();
     });
   }
 

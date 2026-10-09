@@ -89,6 +89,44 @@ Deno.test("shortcuts and the user's role", async () => {
   t.state.lock();
 });
 
+Deno.test('language model thinking: reasoning_effort "none" by default, a setting, logged', async () => {
+  const t = await withCase();
+  const llm = { baseUrl: "http://127.0.0.1:9/v1", model: "m" };
+  assertEquals((await t.user.put("/api/settings", { llm })).status, 200);
+  assertEquals((await t.user.get("/api/settings")).json.llm.reasoningEffort, "none");
+  assertEquals(
+    t.state.session!.settings.llm!.reasoningEffort,
+    undefined,
+    "the default is not stored",
+  );
+  const log = () =>
+    JSON.parse(String(
+      t.state.session!.store.listLog(20).find((r) => r.action === "settings_changed")!.detail,
+    ));
+  assertEquals(log().reasoning_effort, "none");
+  assertEquals(
+    (await t.user.put("/api/settings", { llm: { ...llm, reasoningEffort: "medium" } })).status,
+    200,
+  );
+  assertEquals((await t.user.get("/api/settings")).json.llm.reasoningEffort, "medium");
+  assertEquals(log().reasoning_effort, "medium");
+  // Saving the address again without it keeps the choice.
+  await t.user.put("/api/settings", { llm });
+  assertEquals((await t.user.get("/api/settings")).json.llm.reasoningEffort, "medium");
+  for (const bad of ["max", 3, true]) {
+    assertEquals(
+      (await t.user.put("/api/settings", { llm: { ...llm, reasoningEffort: bad } })).status,
+      400,
+      String(bad),
+    );
+  }
+  await t.user.put("/api/settings", { llm: { ...llm, reasoningEffort: "default" } });
+  assertEquals((await t.user.get("/api/settings")).json.llm.reasoningEffort, "default");
+  await t.user.put("/api/settings", { llm: { ...llm, reasoningEffort: "none" } });
+  assertEquals(t.state.session!.settings.llm!.reasoningEffort, undefined);
+  t.state.lock();
+});
+
 Deno.test("PD-AI 5.4 confirmations are dated, kept in the vault and logged", async () => {
   const t = await withCase();
   let s = (await t.user.get("/api/settings")).json;

@@ -573,6 +573,27 @@ export default async function view(main, params, _ctx) {
         { tone: "danger", timeout: 0 },
       );
     }
+    // Text already in Claude's copy that showed a value just added (ADR 27): the user's own text
+    // now has it replaced; the rest (Claude's work, or text casefile can't tell is yours) is listed.
+    const tt = r.typedText;
+    if (tt && (tt.replaced.length || tt.left.length)) {
+      const parts = [];
+      if (tt.replaced.length) {
+        parts.push(`Replaced in ${andList(tt.replaced.map((x) => x.label), 4)}, which you wrote.`);
+      }
+      if (tt.left.length) {
+        parts.push(
+          `Still written as is in ${andList(tt.left.map((x) => x.label), 4)}: Claude wrote ${
+            tt.left.length === 1 ? "it" : "them"
+          }, or casefile can’t tell you did, so casefile hasn’t changed ${
+            tt.left.length === 1 ? "it" : "them"
+          }. Claude can read ${tt.left.length === 1 ? "it" : "them"}; edit or remove ${
+            tt.left.length === 1 ? "it" : "them"
+          } if you need to.`,
+        );
+      }
+      showToast(parts.join(" "), { tone: tt.left.length ? "danger" : undefined, timeout: 0 });
+    }
     return r;
   }
 

@@ -36,7 +36,9 @@ state, the code value is in `code`; the UI words come from `src/app/ui/model.js`
 - **Token**: `{{role}}` or `{{role.form}}` in tokenised text.
 - **Registry**: the token key: role → real values (forms and aliases). Vault only.
 - **Alias** (UI: "nickname"): another way a person is written ("Annie"). Adding one re-checks every
-  shared document (see Exposure).
+  shared document (see Exposure) and the rest of the text Claude can read: the user's own notes,
+  entries and paragraphs get the token instead; Claude's text and text casefile can't attribute are
+  listed, never rewritten (ADR 27).
 - **Relationship description**: what the user says about a role ("the children's maternal
   grandmother"). Stored tokenised and published to `entities.description`, which the CLI prints;
   refused if it contains any value, even one casefile could replace (ADR 15).

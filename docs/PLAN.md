@@ -60,7 +60,7 @@ The original milestones (1–6) built the core and a first app; the v2 rebuild (
 
 - **Design system and shell**: dark-only UI, CSP-safe classes, bundled IBM Plex Sans and Mono, one state vocabulary, shared components, AppHeader with To-check count, ⌘K search across the case (ADR 20).
 - **Sharing**: origin with "Not asked yet" as the default, the commercial plan behind three PD-AI 5.5 conditions with one-at-a-time sharing, exposures with triggers and re-check, details kept while an origin change withholds a document (ADR 6, ADR 7).
-- **People**: colour slots, relationship descriptions Claude reads, the safety-sensitive flag and the person→detail link, where-they-appear, nickname impact, rename everywhere (ADR 15).
+- **People**: colour slots, relationship descriptions Claude reads, the safety-sensitive flag and the person→detail link, where-they-appear, nickname impact, rename everywhere (ADR 15); merge two entries, stop replacing one that identifies no one, and "Tidy up who's who" suggestions from rules and the local language model (ADR 25).
 - **Checking**: casefile's own checks of names, dates and numbers against the cited lines; four work states with lapsed checks; the two-part check; Can't check blocks checking; removed items restorable; issue and evidence edits; "only source is your own statement" (ADR 8).
 - **Drafting**: four paragraph states with no similarity measure, placeholders, fact-by-fact answers at adoption, paragraph sources and relies-on links, vault-only affidavit heading, export flags for other kinds (ADR 9, ADR 16).
 - **Paste**: logged views and copies, per-sentence checks, safety warning before copy, add to a draft as Claude's (ADR 19).
@@ -86,7 +86,6 @@ These are deliberate (REBUILD-PLAN section 3). The UI says so honestly rather th
 | `.docx` / PDF export | No approved dependency; zip and docx generation is unreviewed surface | "Export for Word (.rtf)"; to make a PDF, open it in Word and Save as PDF |
 | Encrypted single-file backup and restore | The restore path is the risky part and needs its own ADR and tests | Getting started lists backup as not available yet; copy the whole case folder while casefile is closed. The recovery key **is** built |
 | Judgement checks beyond the three built (direct quote, law to check), a quasi-identifier pass | Not built | Extra checks ask three questions (ADR 14 amendment) |
-| Merging two people | A large token rewrite across documents, notes and drafts | Button hidden; the People screen says to rename or add the other spelling as a nickname |
 | Light theme | Contrast is specified and tested for dark only | Dark only (ADR 20) |
 | "My affidavit sworn [date], para 4" citations | Not built in W3-1 | Citations of unmarked documents become "Title, line N" |
 | Hearings and deadlines, draft versions, a hide-now key | Out of the design's scope | Nothing shown |

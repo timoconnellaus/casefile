@@ -1,11 +1,13 @@
 // People (W2-3): who's who grouped People · Places & organisations · Numbers & dates, and one
 // entry's detail: the label Claude sees (rename everywhere), the relationship description Claude
 // reads, the safety-sensitive flag, a colour slot, the ways the name is written, other names
-// (nicknames, with their impact and Undo) and where the entry appears. Merge is deferred: the
-// button is hidden and the page says to rename or add a nickname instead (REBUILD-PLAN §3).
+// (nicknames, with their impact and Undo), where the entry appears, merging it into another entry
+// and no longer replacing it (ADR 25). "Tidy up" lists suggested merges, labels and removals from
+// casefile's rules and the language model set up under Finding names; each is accepted or not.
 //
 // APIs (src/app/routes/entities.ts): GET /api/people, GET|PATCH /api/entities/:role,
-// GET /api/entities/:role/usage, GET /api/entities/:role/alias-impact?alias=.
+// GET /api/entities/:role/usage, GET /api/entities/:role/alias-impact?alias=,
+// POST /api/entities/:role/merge, POST /api/entities/:role/remove, POST /api/people/tidy.
 import { cls, h, uniqueId } from "../dom.js";
 import { api, ApiError, errorText } from "../lib.js";
 import {
@@ -246,7 +248,195 @@ export default async function view(main, params, _ctx) {
   }
   renderSuggestions(all.linkSuggestions);
 
-  main.replaceChildren(suggestHost, h("div", { class: "people" }, aside, detail));
+  // ── tidy up (ADR 25) ──────────────────────────────────────────────────────
+
+  const tidyHost = h("div", { class: "people-tidy", id: "people-tidy" });
+  /** A name to show for an entry: its label when it is a hidden safety-sensitive detail. */
+  const nameOf = (r) => {
+    const e = byRole.get(r);
+    if (!e) return tokenText(r);
+    return isHidden(e) ? `Hidden ${kindLabel(e).toLowerCase()}` : e.forms.full;
+  };
+  const chip = (r) =>
+    TokenChip({ role: r, kind: byRole.get(r)?.kind ?? "other", colour: byRole.get(r)?.colour });
+
+  async function runTidy(ev) {
+    const b = ev?.currentTarget;
+    if (b) b.disabled = true;
+    tidyHost.replaceChildren(
+      h("p", { class: "muted", role: "status" }, "Looking through who’s who…"),
+    );
+    try {
+      const r = await api("POST", "/api/people/tidy", {});
+      // Names for the suggestions come from who's who as it is now.
+      await refresh();
+      renderTidy(r.suggestions, r.llm);
+    } catch (x) {
+      tidyHost.replaceChildren(
+        Callout({ tone: "danger", title: "Couldn’t tidy up", children: errorText(x) }),
+      );
+    } finally {
+      if (b) b.disabled = false;
+    }
+  }
+
+  function tidyLine(x) {
+    if (x.type === "merge") {
+      return [
+        chip(x.from),
+        ` ${nameOf(x.from)} is the same as `,
+        chip(x.into),
+        ` ${nameOf(x.into)}`,
+      ];
+    }
+    if (x.type === "rename") {
+      return ["Call ", chip(x.role), ` ${nameOf(x.role)} `, h("code", {}, `{{${x.to}}}`)];
+    }
+    return ["Stop replacing ", chip(x.role), ` ${nameOf(x.role)}: leave it as written`];
+  }
+
+  async function acceptTidy(x) {
+    if (x.type === "merge") {
+      await api("POST", `/api/entities/${encodeURIComponent(x.from)}/merge`, { into: x.into });
+      return `Merged ${tokenText(x.from)} into ${tokenText(x.into)}.`;
+    }
+    if (x.type === "rename") {
+      const r = await patch({ role: x.to }, x.role);
+      return `Renamed ${tokenText(x.role)} to ${tokenText(r.role)} everywhere.`;
+    }
+    await api("POST", `/api/entities/${encodeURIComponent(x.role)}/remove`, { reason: x.why });
+    return `casefile no longer replaces ${tokenText(x.role)}.`;
+  }
+
+  function renderTidy(list, llm) {
+    let items = [...list];
+    const draw = () => {
+      const note = llm?.error
+        ? h("p", { class: "muted" }, `Only casefile’s own rules were used. ${llm.error}`)
+        : llm?.ran
+        ? h(
+          "p",
+          { class: "muted" },
+          "From casefile’s rules and the language model on this computer. Check each one: they are suggestions.",
+        )
+        : null;
+      if (!items.length) {
+        tidyHost.replaceChildren(Callout({
+          tone: "info",
+          title: "Nothing to tidy",
+          children: [
+            h(
+              "p",
+              {},
+              "casefile found no duplicates, unclear labels or entries that identify no one.",
+            ),
+            note,
+          ],
+        }));
+        return;
+      }
+      tidyHost.replaceChildren(Callout({
+        tone: "info",
+        title: `${plural(items.length, "suggestion")} to tidy who’s who`,
+        children: [
+          h(
+            "p",
+            {},
+            "Merging and renaming update every document and Claude’s notes. Items you checked that change will need checking again.",
+          ),
+          note,
+          h(
+            "ul",
+            { class: "people-suggest-list" },
+            items.map((x, i) =>
+              h(
+                "li",
+                { class: "people-tidy-row" },
+                h(
+                  "div",
+                  { class: "hstack people-suggest-row" },
+                  h("span", { class: "grow" }, ...tidyLine(x)),
+                ),
+                x.why ? h("p", { class: "muted people-tidy-why" }, x.why) : null,
+                h(
+                  "div",
+                  { class: "hstack" },
+                  Button(
+                    x.type === "merge"
+                      ? "Merge"
+                      : x.type === "rename"
+                      ? "Rename"
+                      : "Stop replacing",
+                    {
+                      id: `tidy-${i}`,
+                      onclick: async (ev) => {
+                        const b = ev.currentTarget;
+                        b.disabled = true;
+                        try {
+                          const msg = await acceptTidy(x);
+                          announce(msg);
+                          showToast(msg);
+                        } catch (e) {
+                          b.disabled = false;
+                          showToast(errorText(e), { tone: "danger", returnFocus: b });
+                          return;
+                        }
+                        // Later suggestions may name an entry that has just gone or been renamed.
+                        const gone = x.type === "merge" ? x.from : x.role;
+                        items = items.filter((y) =>
+                          y !== x && ![y.from, y.into, y.role].includes(gone)
+                        );
+                        if (role === gone) {
+                          role = x.type === "merge" ? x.into : x.type === "rename" ? x.to : null;
+                          history.replaceState(
+                            null,
+                            "",
+                            role ? `#/people/${encodeURIComponent(role)}` : "#/people",
+                          );
+                        }
+                        await refresh();
+                        if (!role || !byRole.has(role)) {
+                          role = all.entities[0]?.role ?? null;
+                          if (role) await renderDetail();
+                        }
+                        draw();
+                        tidyHost.querySelector("button")?.focus();
+                      },
+                    },
+                  ),
+                  Button("Not now", {
+                    variant: "quiet",
+                    onclick: () => {
+                      items = items.filter((y) => y !== x);
+                      draw();
+                      tidyHost.querySelector("button")?.focus();
+                    },
+                  }),
+                ),
+              )
+            ),
+          ),
+        ],
+      }));
+    };
+    draw();
+  }
+
+  main.replaceChildren(
+    suggestHost,
+    h(
+      "div",
+      { class: "hstack people-tidy-bar" },
+      Button("Tidy up who’s who", { id: "people-tidy-run", onclick: runTidy }),
+      h(
+        "span",
+        { class: "muted" },
+        "Find duplicates, unclear labels and entries that identify no one.",
+      ),
+    ),
+    tidyHost,
+    h("div", { class: "people" }, aside, detail),
+  );
 
   // ── the list ──────────────────────────────────────────────────────────────
 
@@ -425,12 +615,150 @@ export default async function view(main, params, _ctx) {
       formsSection(e, hidden),
       aliasSection(e, hidden),
       whereSection(e, usage),
+      mergeSection(e),
+      removeSection(e),
+    ].filter(Boolean);
+  }
+
+  // The same person or place as another entry: merge into it (ADR 25).
+  function mergeSection(e) {
+    const others = all.entities.filter((o) => o.role !== e.role)
+      .sort((a, b) =>
+        Number(b.kind === e.kind) - Number(a.kind === e.kind) || a.role.localeCompare(b.role)
+      );
+    if (!others.length) return null;
+    const panel = h("div", {});
+    const select = h(
+      "select",
+      { id: "people-merge", "aria-describedby": "merge-help" },
+      h("option", { value: "" }, "Choose an entry…"),
+      others.map((o) => h("option", { value: o.role }, `{{${o.role}}} ${nameOf(o.role)}`)),
+    );
+    const start = () => {
+      const into = select.value;
+      if (!into) return select.focus();
+      const bar = ConfirmBar({
+        title: `Merge into ${tokenText(into)}?`,
+        summary: `${tokenText(e.role)} becomes ${
+          tokenText(into)
+        } in every document, note, chronology entry and draft, and its spellings become other names for ${
+          nameOf(into)
+        }. Checked items whose text changes will need checking again.`,
+        confirmLabel: "Merge",
+        onCancel: () => {
+          panel.replaceChildren();
+          select.focus();
+        },
+        onConfirm: async () => {
+          try {
+            await api("POST", `/api/entities/${encodeURIComponent(e.role)}/merge`, { into });
+          } catch (x) {
+            panel.replaceChildren(h("p", { class: "people-error", role: "alert" }, errorText(x)));
+            return;
+          }
+          const msg = `Merged ${tokenText(e.role)} into ${tokenText(into)}.`;
+          announce(msg);
+          showToast(msg);
+          location.hash = `#/people/${encodeURIComponent(into)}`;
+        },
+      });
+      panel.replaceChildren(bar);
+      bar.focusPrimary();
+    };
+    return h(
+      "section",
+      { class: "people-sec", "aria-labelledby": "merge-h" },
+      h("h2", { id: "merge-h" }, "The same as another entry?"),
+      h(
+        "div",
+        { class: "hstack people-alias-row" },
+        h("label", { for: "people-merge", class: "sr" }, "Entry to merge into"),
+        select,
+        Button("Merge…", { onclick: start }),
+      ),
       h(
         "p",
-        { class: "people-merge-hint" },
-        "Two entries for the same person? Merging isn’t available yet: rename one, or add the other spelling as a nickname.",
+        { id: "merge-help" },
+        "Use this when one person or place was found twice, for example written “SURNAME, First” in a form.",
       ),
-    ].filter(Boolean);
+      panel,
+    );
+  }
+
+  // Identifies no one (a time, a heading): stop replacing it (ADR 25).
+  function removeSection(e) {
+    if (isSafe(e)) return null;
+    const panel = h("div", {});
+    const reasons = [
+      "It is a time, date or amount",
+      "Public figure or organisation",
+      "Already public in this case",
+      "Other",
+    ];
+    const select = h(
+      "select",
+      { id: "people-remove-why" },
+      reasons.map((r) => h("option", { value: r }, r)),
+    );
+    const other = h("input", {
+      id: "people-remove-other",
+      placeholder: "Why it identifies no one",
+      autocomplete: "off",
+      hidden: true,
+    });
+    select.addEventListener("change", () => {
+      other.hidden = select.value !== "Other";
+    });
+    const start = () => {
+      const reason = select.value === "Other" ? other.value.trim() : select.value;
+      if (!reason) return other.focus();
+      const bar = ConfirmBar({
+        title: `Stop replacing ${tokenText(e.role)}?`,
+        summary: `Claude will see “${
+          isHidden(e) ? kindLabel(e).toLowerCase() : e.forms.full
+        }” as written wherever it appears, including in its own notes. It leaves who’s who.`,
+        confirmLabel: "Stop replacing it",
+        danger: true,
+        onCancel: () => {
+          panel.replaceChildren();
+          select.focus();
+        },
+        onConfirm: async () => {
+          try {
+            await api("POST", `/api/entities/${encodeURIComponent(e.role)}/remove`, { reason });
+          } catch (x) {
+            panel.replaceChildren(h("p", { class: "people-error", role: "alert" }, errorText(x)));
+            return;
+          }
+          const msg = `casefile no longer replaces ${tokenText(e.role)}.`;
+          announce(msg);
+          showToast(msg);
+          location.hash = "#/people";
+        },
+      });
+      panel.replaceChildren(bar);
+      bar.focusPrimary();
+    };
+    return h(
+      "section",
+      { class: "people-sec", "aria-labelledby": "remove-h" },
+      h("h2", { id: "remove-h" }, "Identifies no one?"),
+      h(
+        "div",
+        { class: "hstack people-alias-row" },
+        h("label", { for: "people-remove-why", class: "sr" }, "Why it can be left as written"),
+        select,
+        h("label", { for: "people-remove-other", class: "sr" }, "Reason"),
+        other,
+        Button("Stop replacing…", { onclick: start }),
+      ),
+      h(
+        "p",
+        {},
+        "For something found by mistake, like a time of day. The reason is kept with each document.",
+      ),
+      panel,
+    );
   }
 
   // How Claude refers to them: the role, renamed everywhere.

@@ -1297,6 +1297,21 @@ const LABELS: Record<string, Label> = {
     "people",
     (d) => `You renamed the label {{${txt(d.from)}}} to {{${txt(d.to)}}}`,
   ],
+  entity_merged: [
+    "people",
+    (d) => `You merged {{${txt(d.from)}}} into {{${txt(d.into)}}}`,
+  ],
+  entity_removed: [
+    "people",
+    (d) => `You stopped replacing {{${txt(d.role)}}}: it is left as written`,
+  ],
+  entity_suggestions: [
+    "people",
+    (d) =>
+      `casefile's language model suggested ${
+        count(d.suggestions, "tidy-up") || "no tidy-ups"
+      } for who's who`,
+  ],
   // ── checking ──
   attested_items_deleted_outside_app: [
     "checking",

@@ -11,6 +11,7 @@ import {
   entityGroup,
   idType,
   roleUsage,
+  suggestTidy,
 } from "../../core/people.ts";
 import { foldValue } from "../../core/fold.ts";
 import { labelLinkSuggestions } from "../../core/export/safety.ts";
@@ -21,7 +22,7 @@ import { HttpError, route } from "./context.ts";
  * People, places and identifiers (the registry), as the user sees them. Everything here reads the
  * vault (real values, counts from originals) and is for the app only (ADR 3, ADR 15).
  */
-export function entitiesRoutes({ s, show }: RouteContext): Route[] {
+export function entitiesRoutes({ s, show, state }: RouteContext): Route[] {
   const intParam = (v: string | null, name: string, fallback: number): number => {
     if (v === null || v === "") return fallback;
     const n = Number(v);
@@ -127,6 +128,33 @@ export function entitiesRoutes({ s, show }: RouteContext): Route[] {
     route("GET", "/api/entities/:role/alias-impact", async ({ params, url }) => {
       const alias = url.searchParams.get("alias") ?? "";
       return await aliasImpact(s(), params.role, alias);
+    }),
+    /**
+     * "Tidy up who's who" (ADR 25): suggested merges, labels and removals, from rules and from the
+     * language model set up under Finding names (if any). Nothing changes until one is accepted.
+     */
+    route("POST", "/api/people/tidy", async ({ body }) => {
+      const b = await body();
+      return await suggestTidy(s(), {
+        useLlm: b.useLlm !== false,
+        fetch: state.opts.tidyFetch,
+      });
+    }),
+    /** Merge this entry into `into` (ADR 25): one person or place written two ways. */
+    route("POST", "/api/entities/:role/merge", async ({ params, body }) => {
+      const b = await body();
+      if (typeof b.into !== "string" || !b.into) throw new HttpError(400, "into must be a role");
+      if (!s().registry.get(params.role)) throw new HttpError(404, "No such entry");
+      await s().mergeEntity(params.role, b.into);
+      return { ok: true, role: b.into };
+    }),
+    /** Stop replacing this entry (ADR 25): it identifies no one. Needs a reason. */
+    route("POST", "/api/entities/:role/remove", async ({ params, body }) => {
+      const b = await body();
+      if (typeof b.reason !== "string") throw new HttpError(400, "reason must be text");
+      if (!s().registry.get(params.role)) throw new HttpError(404, "No such entry");
+      await s().removeEntity(params.role, b.reason);
+      return { ok: true };
     }),
     route("PATCH", "/api/entities/:role", async ({ params, body }) => {
       const b = await body();

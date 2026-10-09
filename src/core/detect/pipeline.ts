@@ -2,7 +2,7 @@ import type { EntityKind, EntityRegistry } from "../entities.ts";
 import { normaliseVariant, splitPersonName } from "../entities.ts";
 import type { Form } from "../tokens.ts";
 import { fold, type Folded, foldValue, unfold } from "../fold.ts";
-import { DATE, findRuleSpans } from "./rules.ts";
+import { DATE, findRuleSpans, harmlessShape } from "./rules.ts";
 import { parseTokens } from "../tokens.ts";
 import { type Detector, sourceRank, type Span } from "./types.ts";
 
@@ -280,7 +280,9 @@ export async function detect(text: string, opts: DetectOptions): Promise<DetectR
     // Models flag courts, agencies and headings as organisations; they identify no one. Only
     // non-person spans are dropped: a person may well be called "Court" or "West".
     !((s.source === "ner" || s.source === "llm") && s.kind !== "person" &&
-      isGenericInstitution(s.text));
+      isGenericInstitution(s.text)) &&
+    // Models also flag times, dates and amounts ("5:01 PM"); they identify no one (ADR 25).
+    !((s.source === "ner" || s.source === "llm") && harmlessShape(s.text, s.kind));
   const merged = mergeSpans(raw.flatMap((s) => normaliseSpan(text, s)).filter(keep));
 
   // New entities: anything found by a model (or rule) that the registry does not know.

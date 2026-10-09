@@ -1,5 +1,6 @@
 import { isAbsolute, join, relative, resolve, SEPARATOR } from "@std/path";
 import type { Detector } from "../core/detect/types.ts";
+import type { FetchFn } from "../core/detect/llm.ts";
 import { createJudge, type JudgeDeps } from "../core/judge/factory.ts";
 import type { Judge } from "../core/judge/types.ts";
 import { casePaths, isCaseDir } from "../core/case.ts";
@@ -41,6 +42,8 @@ export interface AppStateOptions {
   detectorFactory?: (settings: CaseSettings) => Promise<Detector[]> | Detector[];
   /** Classifies the configured LLM endpoint as local or remote. */
   llmChecker?: (settings: CaseSettings) => Promise<LlmCheck>;
+  /** How "Tidy up who's who" reaches the language model (tests pass a stub) (ADR 25). */
+  tidyFetch?: FetchFn;
   /** What the extra checks' backends use to reach a model (tests pass stubs) (ADR 14). */
   judgeDeps?: JudgeDeps;
   /** KDF iterations for new vaults (tests use fewer). */

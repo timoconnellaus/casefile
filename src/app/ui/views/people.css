@@ -566,9 +566,30 @@ input.people-alias-input {
   gap: var(--sp-2);
 }
 
-.people-merge-hint {
-  color: var(--muted);
-  max-width: 640px;
+/* Tidy up who's who (ADR 25). */
+.people-tidy-bar {
+  margin: var(--sp-3) var(--sp-4) 0;
+  flex-wrap: wrap;
+}
+
+.people-tidy:empty {
+  display: none;
+}
+
+.people-tidy {
+  margin: var(--sp-3) var(--sp-4) 0;
+}
+
+.people-tidy-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--line);
+}
+
+.people-tidy-why {
+  margin: 0;
 }
 
 /* The shell moves focus to the h1 on navigation; it is not a control, so no ring. */

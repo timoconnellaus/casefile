@@ -1,6 +1,6 @@
 {
   "name": "@casefile/casefile",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "exports": "./src/cli/main.ts",
   "tasks": {
     "test": "deno test --allow-read --allow-write --allow-env --allow-run --allow-net=127.0.0.1,localhost --allow-sys --allow-ffi",

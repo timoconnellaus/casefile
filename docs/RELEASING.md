@@ -33,6 +33,12 @@ run the workflow by hand: Actions → release → Run workflow.
 
 ## One-time setup
 
+**Done 2026-10-09.** The `release` environment deploys from `main` only and has no required
+reviewers (the owner chose fully automatic). The key was generated into its secret,
+`UPDATE_REPO` is set, the actions are pinned, and version 0.2.0 is the first release. The steps
+are kept for reference, and for redoing the key.
+
+
 Done once, when the repo is first set up. Until all of it is done, `UPDATE_REPO` or
 `UPDATE_PUBLIC_KEY` in `src/app/update_config.ts` is null, and the app never checks for updates.
 

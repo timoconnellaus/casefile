@@ -5,12 +5,14 @@ import { CaseSession, type PublishRequest, type StoredDoc } from "../src/core/se
 import { InvalidInputError } from "../src/core/publicdb.ts";
 import type { FetchFn } from "../src/core/detect/llm.ts";
 import {
+  checkReviewSuggestions,
   checkSuggestions,
   harmlessShape,
   ruleSuggestions,
   settle,
+  settleReview,
 } from "../src/core/detect/tidy.ts";
-import { suggestTidy, tidyEntries } from "../src/core/people.ts";
+import { suggestForReview, suggestTidy, tidyEntries } from "../src/core/people.ts";
 import { EntityRegistry, splitPersonName } from "../src/core/entities.ts";
 import { FakeNameDetector, tempDir } from "./fixtures/synthetic.ts";
 import { withCase } from "./helpers/app.ts";
@@ -327,4 +329,185 @@ Deno.test("API: tidy suggests, merge and remove carry it out, and bad requests a
   // Signed out: refused.
   assertEquals((await t.other.post("/api/people/tidy", {})).status, 401);
   s.close();
+});
+
+// ── while a document is reviewed (ADR 25 amendment) ────────────────────────
+
+const LATER = `${FORM}3. My mother, Margaret Thornbury, minds the children.
+`;
+
+/** A first document that writes the father two ways, both new (as the PDF did), under review. */
+async function reviewCase() {
+  const { s } = await newCase();
+  s.detectors = [
+    new FakeNameDetector([
+      { text: "Anna Thornbury", kind: "person", roleHint: "mother" },
+      { text: "Daniel Okafor", kind: "person", roleHint: "father" },
+      { text: "OKAFOR, Daniel", kind: "person" },
+      { text: "Margaret Thornbury", kind: "person" },
+    ]),
+  ];
+  const doc = await s.importText({ origin: "mine", title: "Form", text: LATER });
+  return { s, doc };
+}
+
+const keyOf = (doc: StoredDoc, full: string) => doc.newEntities.find((n) => n.full === full)!.key;
+
+Deno.test("review rules: a name written backwards is the same as the one written forwards", async () => {
+  const { s, doc } = await reviewCase();
+  const r = await suggestForReview(s, doc.id, { useLlm: false });
+  assertEquals(r.suggestions.map((x) => [x.type, x.key, x.type === "same" ? x.as : ""]), [
+    ["same", keyOf(doc, "OKAFOR, Daniel"), keyOf(doc, "Daniel Okafor")],
+  ]);
+  s.close();
+});
+
+Deno.test("review suggestions are checked and settled", () => {
+  const r = new EntityRegistry();
+  r.add({ kind: "person", full: "Daniel Okafor", role: "father" });
+  r.add({ kind: "school", full: "Kiama Downs Public School", role: "school_1" });
+  const items = [
+    { id: "n1", key: "k1", kind: "person" as const, value: "Dan", label: "" },
+    { id: "n2", key: "k2", kind: "person" as const, value: "Margaret Thornbury", label: "" },
+    { id: "n3", key: "k3", kind: "other" as const, value: "Bunnings", label: "" },
+    { id: "n4", key: "k4", kind: "person" as const, value: "D. Okafor", label: "" },
+  ];
+  const got = checkReviewSuggestions(
+    {
+      suggestions: [
+        { type: "same", item: "n1", as: "n4", why: "Dan is D. Okafor" },
+        { type: "same", item: "n4", as: "father", why: "the father" },
+        { type: "same", item: "n2", as: "school_1", why: "wrong kind" },
+        { type: "label", item: "n2", to: "maternal_grandmother", why: "her mother" },
+        { type: "label", item: "n3", to: "thornbury_shop", why: "leaks" },
+        { type: "label", item: "n3", to: "father", why: "taken" },
+        { type: "leave", item: "n2", why: "a person is never left" },
+        { type: "leave", item: "n3", why: "a shop" },
+        { type: "same", item: "n9", as: "father", why: "unknown item" },
+        // A different name matched by role: dropped.
+        { type: "same", item: "n2", as: "father", why: "the respondent" },
+      ],
+    },
+    items,
+    r,
+    "llm",
+    () => false,
+  );
+  assertEquals(
+    settleReview(got).map((x) =>
+      `${x.type} ${x.key}${x.type === "same" ? `>${x.as}` : x.type === "label" ? `=${x.to}` : ""}`
+    ),
+    ["same k1>father", "same k4>father", "label k2=maternal_grandmother", "leave k3"],
+  );
+  // A cycle is dropped.
+  assertEquals(
+    settleReview([
+      { type: "same", key: "k1", as: "k2", why: "", source: "llm" },
+      { type: "same", key: "k2", as: "k1", why: "", source: "llm" },
+    ]),
+    [],
+  );
+});
+
+Deno.test("review: the local model reads the whole document; a remote one gets nothing", async () => {
+  const { s, doc } = await reviewCase();
+  let sent = "";
+  const fetchFn: FetchFn = (input, init) => {
+    const url = String(input);
+    if (url.endsWith("/api/tags")) return Promise.resolve(new Response("", { status: 404 }));
+    sent += String(JSON.parse(String(init?.body)).messages[1].content);
+    const used = doc.newEntities.filter((n) =>
+      doc.proposals.some((p) =>
+        (p.proposal.type === "new" && p.proposal.key === n.key) ||
+        (p.proposal.type === "ambiguous" && p.proposal.options.some((o) => o.ref === n.key))
+      )
+    );
+    const margaret = used.findIndex((n) => n.full === "Margaret Thornbury");
+    return Promise.resolve(Response.json({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            suggestions: [{
+              type: "label",
+              item: `n${margaret + 1}`,
+              to: "maternal_grandmother",
+              why: "Her mother.",
+            }],
+          }),
+        },
+      }],
+    }));
+  };
+  await s.updateSettings({
+    llm: { baseUrl: "http://127.0.0.1:1234/v1", model: "m", trustLocalServer: true },
+  });
+  const r = await suggestForReview(s, doc.id, { fetch: fetchFn });
+  assertEquals(r.llm, { ran: true });
+  assert(sent.includes("My mother, Margaret Thornbury, minds the children."), "the whole text");
+  assertEquals(r.suggestions.map((x) => x.type).sort(), ["label", "same"]);
+
+  await s.updateSettings({ llm: { baseUrl: "https://llm.example.com/v1", model: "m" } });
+  sent = "";
+  const remote = await suggestForReview(s, doc.id, { fetch: fetchFn });
+  assertEquals(remote.llm.ran, false);
+  assertEquals(sent, "");
+  s.close();
+});
+
+Deno.test("publishing remembers a spelling the user tied to someone, and only that", async () => {
+  const { s, doc } = await reviewCase();
+  const { request, unresolved } = s.defaultPublishRequest(doc);
+  const key = keyOf(doc, "OKAFOR, Daniel");
+  const father = keyOf(doc, "Daniel Okafor");
+  // As the review screen sends it after "Use": the backwards spelling replaced as the father.
+  const replacements = [
+    ...request.replacements.map((r) =>
+      r.ref === key ? { ...r, ref: father, form: "full" as const } : r
+    ),
+    ...unresolved.map((u) => {
+      const o = (u.proposal as { options: { ref: string; form: "full" }[] }).options[0];
+      return { start: u.start, end: u.end, ref: o.ref, form: o.form };
+    }),
+  ];
+  const req: PublishRequest = {
+    newEntities: request.newEntities.filter((n) => n.ref !== key),
+    replacements,
+  };
+  await assertRejects(
+    () => s.publish(doc.id, { ...req, aliases: [{ ref: father, value: "Margaret Thornbury" }] }),
+    InvalidInputError,
+    "isn’t replaced",
+  );
+  await s.publish(doc.id, { ...req, aliases: [{ ref: father, value: "OKAFOR, Daniel" }] });
+  assertEquals(s.registry.get("father")!.aliases, ["OKAFOR, Daniel"]);
+  assert(!s.registry.list().some((e) => e.forms.full === "OKAFOR, Daniel" && e.role !== "father"));
+  // The next document finds the father straight away.
+  const next = await s.importText({ origin: "mine", title: "Next", text: "OKAFOR, Daniel\n" });
+  assert(
+    next.proposals.some((p) => p.proposal.type === "existing" && p.proposal.role === "father"),
+  );
+  await assertRejects(() => suggestForReview(s, doc.id), InvalidInputError, "already shared");
+  s.close();
+});
+
+Deno.test("review: a nickname that shares no name is kept but flagged; names that overlap are not", () => {
+  const r = new EntityRegistry();
+  const items = [
+    { id: "n1", key: "k1", kind: "person" as const, value: "Gaz", label: "" },
+    { id: "n2", key: "k2", kind: "person" as const, value: "Gareth Pemberton", label: "" },
+    { id: "n3", key: "k3", kind: "person" as const, value: "Gar", label: "" },
+  ];
+  const got = checkReviewSuggestions(
+    {
+      suggestions: [
+        { type: "same", item: "n1", as: "n2", why: "nickname" },
+        { type: "same", item: "n3", as: "n2", why: "short form" },
+      ],
+    },
+    items,
+    r,
+    "llm",
+    () => false,
+  );
+  assertEquals(got.map((g) => g.type === "same" && g.caution === true), [true, false]);
 });

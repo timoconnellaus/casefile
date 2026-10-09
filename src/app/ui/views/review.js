@@ -260,6 +260,8 @@ class Review {
     this.release = false;
     this.problem = null; // the last refusal from casefile (names still showing, etc.)
     this.previewNew = null;
+    /** Suggested fixes for the findings (ADR 25): null until asked. */
+    this.tidy = null;
     this.load(data);
   }
 
@@ -278,6 +280,7 @@ class Review {
       this.manualSpans = [];
       this.manualFindings = [];
       this.userNew = new Map();
+      this.tidy = null;
     }
     // Provisional labels for new entities (the server allocates the same way; it may renumber).
     this.taken = new Set(data.entities.map((e) => e.role));
@@ -462,6 +465,7 @@ class Review {
 
   /** The request built from every decision. */
   request() {
+    const aliases = [];
     const replacements = [];
     const ignore = [];
     const ignoreReasons = {};
@@ -476,6 +480,8 @@ class Review {
         continue;
       }
       used.add(d.ref);
+      // "The same as…" from a suggestion: remember this spelling as another name (ADR 25).
+      if (d.learn) aliases.push({ ref: d.ref, value: f.text });
       for (const sid of f.spans) {
         const s = this.spanById.get(sid);
         replacements.push({
@@ -497,6 +503,7 @@ class Review {
         surname: n.surname,
       }));
     const body = { newEntities, replacements, ignore, ignoreReasons };
+    if (aliases.length) body.aliases = aliases;
     if (this.titleDraft !== undefined) body.title = this.titleDraft;
     if (this.willShare && this.origin !== "mine") body.release = true;
     return body;
@@ -881,7 +888,8 @@ class Review {
     }
 
     const shortcuts = this.ctx.shortcuts !== false;
-    this.findingsEl.replaceChildren(
+    // replaceChildren prints a null child as the word "null": leave missing parts out.
+    this.findingsEl.replaceChildren(...[
       h(
         "div",
         { class: "rv-findings-head" },
@@ -924,7 +932,7 @@ class Review {
             h("a", { href: "#/settings" }, "Turn them on in Settings"),
           ),
       ),
-    );
+    ].filter(Boolean));
     this.detachKeys?.();
     this.detachKeys = listShortcuts(list, {
       j: () => this.step(1),
@@ -1346,9 +1354,12 @@ class Review {
 
   renderSide() {
     this.sideEl.replaceChildren(
-      this.originSection(),
-      this.decisionSection(),
-      this.shareSection(),
+      ...[
+        this.originSection(),
+        this.readOnly ? null : this.tidySection(),
+        this.decisionSection(),
+        this.shareSection(),
+      ].filter(Boolean),
     );
   }
 
@@ -1489,6 +1500,245 @@ class Review {
     }
   }
 
+  // ── suggested fixes (ADR 25) ───────────────────────────────────────────────
+
+  /** Findings decided as `ref` (a new entity's key), which a suggestion about it changes. */
+  findingsOfRef(ref) {
+    return this.findings.filter((f) => {
+      if (f.origType === "earlier") return false;
+      const d = this.decisionOf(f);
+      return d?.type === "replace" && d.ref === ref;
+    });
+  }
+
+  async askTidy() {
+    this.tidy = { status: "loading" };
+    this.renderSide();
+    try {
+      const r = await api("POST", `/api/docs/${encodeURIComponent(this.data.id)}/tidy`, {});
+      // Only suggestions about findings still decided as casefile proposed.
+      const list = r.suggestions.filter((x) => this.findingsOfRef(x.key).length);
+      this.tidy = { status: "done", list, llm: r.llm };
+      announce(
+        list.length ? `${plural(list.length, "suggestion")} to look at.` : "Nothing to suggest.",
+      );
+    } catch (e) {
+      this.tidy = { status: "error", error: e?.message ?? String(e) };
+    }
+    this.renderSide();
+    this.sideEl.querySelector("[data-fk='tidy-first']")?.focus();
+  }
+
+  /** What a suggestion would do, in words. */
+  tidyWords(x) {
+    const text = this.refInfo(x.key).name;
+    if (x.type === "same") {
+      return `“${text}” is ${this.refInfo(x.as).name} (${tokenText(this.refInfo(x.as).role)})`;
+    }
+    if (x.type === "label") return `Call “${text}” ${tokenText(x.to)}`;
+    return `Leave “${text}” as written`;
+  }
+
+  /** Carry out one suggestion on this screen's decisions. Returns false if it no longer fits. */
+  useTidy(x) {
+    const fs = this.findingsOfRef(x.key);
+    if (!fs.length) return false;
+    if (x.type === "same") {
+      if (!this.entities.has(x.as) && !this.detNew.has(x.as)) return false;
+      for (const f of fs) this.decisions.set(f.id, { type: "replace", ref: x.as, learn: true });
+    } else if (x.type === "label") {
+      const n = this.detNew.get(x.key);
+      if (!n || !this.setLabel(n, x.to)) return false;
+    } else {
+      if (fs.some((f) => this.safetyRolesOf(f).length)) return false;
+      for (const f of fs) {
+        this.decisions.set(f.id, {
+          type: "keep",
+          reason: `Not identifying: ${x.why || "suggested"}`,
+        });
+      }
+    }
+    return true;
+  }
+
+  finishTidy(used, skipped) {
+    this.tidy.list = this.tidy.list.filter((y) => !used.includes(y) && !skipped.includes(y));
+    this.problem = null;
+    this.closeConfirm();
+    this.refresh();
+    const msg = skipped.length
+      ? `${plural(used.length, "suggestion")} used; ${
+        plural(skipped.length, "suggestion")
+      } no longer fit.`
+      : `${plural(used.length, "suggestion")} used. Check them in the list before you share.`;
+    announce(msg);
+    this.sideEl.querySelector("[data-fk='tidy-first']")?.focus();
+  }
+
+  tidySection() {
+    const t = this.tidy;
+    const body = [];
+    if (!t || t.status === "error") {
+      body.push(
+        h(
+          "p",
+          { class: "muted" },
+          "casefile can suggest who each new finding is, what Claude should call them, and what identifies no one. The language model on this computer reads the whole document; nothing leaves this computer.",
+        ),
+        t?.status === "error" ? h("p", { class: "rv-error", role: "alert" }, t.error) : null,
+        h("button", {
+          type: "button",
+          class: "btn",
+          "data-fk": "tidy-first",
+          onclick: () => this.askTidy(),
+        }, "Suggest fixes"),
+      );
+    } else if (t.status === "loading") {
+      body.push(
+        h("p", { class: "muted", role: "status" }, "Reading the document… this can take a minute."),
+      );
+    } else {
+      if (t.llm?.error) {
+        body.push(
+          h("p", { class: "muted" }, `Only casefile’s own rules were used. ${t.llm.error}`),
+        );
+      }
+      if (!t.list.length) body.push(h("p", { class: "muted" }, "Nothing (more) to suggest."));
+      else {
+        body.push(
+          h(
+            "ul",
+            { class: "rv-tidy-list" },
+            t.list.map((x, i) =>
+              h(
+                "li",
+                { class: "vstack gap-sm" },
+                h("span", {}, this.tidyWords(x)),
+                x.caution
+                  ? h(
+                    "span",
+                    { class: "rv-error small" },
+                    "The names differ: the language model may have matched who they are, not their name. Use this only if you’re sure.",
+                  )
+                  : null,
+                x.why ? h("span", { class: "small muted" }, x.why) : null,
+                h(
+                  "div",
+                  { class: "hstack" },
+                  h("button", {
+                    type: "button",
+                    class: "btn",
+                    "data-fk": i === 0 ? "tidy-first" : null,
+                    onclick: () => {
+                      const ok = this.useTidy(x);
+                      this.finishTidy(ok ? [x] : [], ok ? [] : [x]);
+                    },
+                  }, "Use"),
+                  h("button", {
+                    type: "button",
+                    class: "btn btn-quiet",
+                    onclick: () => this.finishTidy([], [x]),
+                  }, "Not now"),
+                ),
+              )
+            ),
+          ),
+          !t.list.some((y) => !y.caution) ? null : h(
+            "button",
+            {
+              type: "button",
+              class: "btn btn-primary",
+              onclick: () => {
+                const used = [];
+                const skipped = [];
+                // Doubtful matches stay in the list for a deliberate choice.
+                for (const x of t.list.filter((y) => !y.caution)) {
+                  (this.useTidy(x) ? used : skipped).push(x);
+                }
+                this.finishTidy(used, skipped);
+              },
+            },
+            (() => {
+              const n = t.list.filter((y) => !y.caution).length;
+              return n === t.list.length
+                ? (n === 1 ? "Use it" : `Use all ${n}`)
+                : n === 1
+                ? "Use the likely one"
+                : `Use the ${n} likely ones`;
+            })(),
+          ),
+        );
+      }
+    }
+    return h(
+      "section",
+      { class: "rv-sec", "aria-labelledby": "rv-tidy-h", "data-region": "tidy" },
+      h("h2", { id: "rv-tidy-h" }, "Suggested fixes"),
+      body,
+    );
+  }
+
+  /** Give a new entity the label `to`. False if it isn't a valid, free label. */
+  setLabel(n, to) {
+    if (!/^[a-z][a-z0-9_]{0,47}$/.test(to) || /\d{3,}/.test(to)) return false;
+    if (to === n.role) return true;
+    if (this.taken.has(to)) return false;
+    this.taken.delete(n.role);
+    n.role = to;
+    this.taken.add(to);
+    return true;
+  }
+
+  /** "Claude will call them {{…}}" for a new entity, editable before sharing. */
+  labelEditor(n) {
+    const err = h("p", { class: "rv-error", role: "alert", id: "rv-label-err" });
+    const input = h("input", {
+      id: "rv-label",
+      value: n.role,
+      spellcheck: "false",
+      autocomplete: "off",
+      "aria-describedby": "rv-label-help rv-label-err",
+    });
+    const save = () => {
+      const to = input.value.trim();
+      if (to === n.role) return;
+      if (!this.setLabel(n, to)) {
+        err.textContent = this.taken.has(to)
+          ? `${tokenText(to)} is already used.`
+          : "Use lower-case letters, digits and _, starting with a letter, like maternal_grandmother.";
+        input.focus();
+        return;
+      }
+      announce(`Claude will see ${tokenText(to)}.`);
+      this.refresh();
+    };
+    input.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter") {
+        ev.preventDefault();
+        save();
+      }
+    });
+    return h(
+      "div",
+      { class: "vstack gap-sm" },
+      h("label", { for: "rv-label" }, "What Claude calls this new entry"),
+      h(
+        "div",
+        { class: "hstack" },
+        h("span", { "aria-hidden": "true" }, "{{"),
+        input,
+        h("span", { "aria-hidden": "true" }, "}}"),
+        h("button", { type: "button", class: "btn", onclick: save }, "Save label"),
+      ),
+      h(
+        "p",
+        { id: "rv-label-help", class: "small muted" },
+        "A relationship, never a name. casefile checks it again when you share.",
+      ),
+      err,
+    );
+  }
+
   decisionSection() {
     if (this.readOnly) return this.sharedSection();
     const f = this.findingById(this.selected);
@@ -1532,6 +1782,8 @@ class Review {
           }, "Change"),
         ),
       );
+      const n = this.detNew.get(d.ref) ?? this.userNew.get(d.ref);
+      if (n) body.push(this.labelEditor(n));
     } else {
       body.push(
         h(

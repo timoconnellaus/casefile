@@ -307,6 +307,12 @@ export interface PublishRequest {
   title?: string;
   /** On a commercial plan: share this other-side or subpoena document with Claude (ADR 7). */
   release?: boolean;
+  /**
+   * Spellings to remember as other names of an entry (ADR 25 amendment): the user said a finding
+   * ("OKAFOR, Daniel") is someone already listed. `ref` is a role or a NewEntityInput.ref; `value`
+   * must be the text of a replacement with that ref in this request.
+   */
+  aliases?: { ref: string; value: string }[];
 }
 
 /** A document for lists: its summary, state and why it is withheld. */
@@ -1564,6 +1570,25 @@ export class CaseSession {
       }
       return { start: r.start, end: r.end, role, form: r.form };
     });
+    // Spellings the user tied to an entry become its other names, so the next document that
+    // writes them the same way finds that entry (ADR 25 amendment). Only text this request
+    // replaces with that entry, and never a value that is already someone else's.
+    for (const a of req.aliases ?? []) {
+      const role = refToRole.get(a.ref) ?? (registry.get(a.ref) ? a.ref : undefined);
+      const value = typeof a.value === "string" ? a.value.replace(/\s+/g, " ").trim() : "";
+      if (!role || !value) continue;
+      const replaced = replacements.some((r) =>
+        r.role === role &&
+        normaliseVariant(doc.original.slice(r.start, r.end)) === normaliseVariant(value)
+      );
+      if (!replaced) {
+        throw new InvalidInputError(`“${value}” isn’t replaced with ${formatToken(role)} here.`);
+      }
+      const owners = registry.candidates(value).map((c) => c.entity.role);
+      if (owners.length) continue; // already known (as this entry, or someone else's: left alone)
+      const e = registry.get(role)!;
+      registry.update(role, { aliases: [...e.aliases, value] });
+    }
     // A safety-sensitive person's name or details are never left as written (ADR 6, ADR 0015).
     // Asking to is refused; an earlier "leave as written" of such a value (made before the person
     // was marked, or before the value was known to be theirs) is dropped, so the leak check below

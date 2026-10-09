@@ -66,6 +66,9 @@ state, the code value is in `code`; the UI words come from `src/app/ui/model.js`
   safety-sensitive entry or a value another entry has (ADR 25).
 - **Tidy up who's who**: suggested merges, relationship labels and removals, from rules and the
   language model under Finding names; each is accepted or not by the user (ADR 25).
+- **Suggested fixes** (review screen): for each new finding in a document under review, "the same
+  as" someone listed or another finding, a label, or "leave as written", from rules and the language
+  model reading the whole document; "Use" pre-fills the decisions (ADR 25 amendment).
 - **Re-identify**: swap tokens back to real values, in the app only.
 
 ## Documents

@@ -1404,6 +1404,13 @@ const LABELS: Record<string, Label> = {
     "people",
     (d) => `You stopped replacing {{${txt(d.role)}}}: it is left as written`,
   ],
+  review_suggestions: [
+    "people",
+    (d) =>
+      `casefile suggested ${count(d.suggestions, "tidy-up") || "no tidy-ups"} while you reviewed ${
+        txt(d.doc)
+      }`,
+  ],
   entity_suggestions: [
     "people",
     (d) =>

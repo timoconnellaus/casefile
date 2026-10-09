@@ -460,6 +460,10 @@ export function updateReadyNote(version) {
   return `casefile ${version} is ready. Restart to update.`;
 }
 
+export function updateReadyLockedNote(version) {
+  return `casefile ${version} is ready. Quit casefile and open it again to update.`;
+}
+
 export function updateRolledBackNote() {
   return "The last casefile update didn't start, so casefile went back to the version before it.";
 }

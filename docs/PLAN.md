@@ -54,7 +54,7 @@ The original milestones (1–6) built the core and a first app; the v2 rebuild (
 3. **Desktop app v1** — built, then rebuilt in v2. Import, review, publish, real-name reading view, local API security (ADR 13).
 4. **Organisation** — built. CLI write commands (document details, tags, chronology, issues, evidence, notes, drafts and paragraphs) and the user's checks, signed in a vault ledger (ADR 8), with the CLI refusing to change what the user checked or adopted.
 5. **Drafting workspace** — built. Per-paragraph authorship and adoption with an affidavit export gate (ADR 9); draft kind recorded in the ledger.
-6. **Packaging and more formats** — packaging partly built. `deno task desktop` builds `dist/casefile.app` with `deno desktop` (the UI files are included; the bundle is about 310 MB because of the NER runtime). The bundle builds and signs ad hoc, but the packaged app has not been run through the smoke test; `deno task app` in a browser remains the tested way to run it (ADR 2). PDF import (text layer) is built (ADR 23); OCR and DOCX input are deferred (below).
+6. **Packaging and more formats** — packaging built. `deno task desktop` builds `dist/casefile.app` (Apple silicon; about 240 MB, mostly the NER runtime) with the CLI inside. Releases are built, smoke-tested, signed and published by GitHub Actions, and the app updates itself from them (ADR 24). It is ad-hoc signed and installed with `install.sh`, not notarised. PDF import (text layer) is built (ADR 23); OCR and DOCX input are deferred (below).
 
 **v2 rebuild** (all in the app and CLI as they stand):
 
@@ -150,7 +150,7 @@ These are deliberate (REBUILD-PLAN section 3). The UI says so honestly rather th
 | Topic | Decision |
 |---|---|
 | User | Single user, self-represented party |
-| Packaging | Browser app now; `deno desktop` later |
+| Packaging | Desktop app (`deno desktop`), self-updating from signed GitHub releases (ADR 23) |
 | Stack | All TypeScript (Deno) |
 | NER | Own AU rules + transformers.js (pinned) + optional LLM pass |
 | Inputs | Plain text and Markdown; paste / files / folder / drag-drop |
@@ -163,11 +163,11 @@ These are deliberate (REBUILD-PLAN section 3). The UI says so honestly rather th
 
 ## Using it while it is being built
 
-The main checkout, on `main`, is the copy in daily use: `deno task app` there, in a browser at http://127.0.0.1:8217. Work happens in worktrees (ADR 22).
+The user runs the desktop app, installed from this repo's GitHub releases. It updates itself: when a new release is out it shows "casefile X.Y.Z is ready — Restart to update" (ADR 23, [RELEASING.md](RELEASING.md)). Work happens in worktrees.
 
 - **Develop:** in a worktree, run `deno task seed:dev` once, then `deno task dev` (http://127.0.0.1:8218, marked "dev"). It opens only cases inside `.dev/`.
-- **Release:** open a PR; once GitHub CI is green and it is merged, `git pull --ff-only` and run `deno task release` in the main checkout. It runs `deno task ci`, backs up the case to `~/Library/Application Support/casefile/backups/` (Claude Code can't read there), installs `casefile` to `~/.local/bin` and tags the commit `use-…`. It then restarts the running app into the release: the case stays open, the browser stays signed in, and the page offers a reload. `--desktop` also rebuilds `dist/casefile.app`.
-- **Go back:** stop the app, `git checkout` the earlier `use-…` tag, replace the case folder's contents with the backup made before the release being left (everything except `backup.json`), and start the app. Work done since that backup is lost.
+- **Release:** open a PR; once GitHub CI is green and it is merged, tag `main` with the next `vX.Y.Z` and push the tag. The release workflow builds, smoke-tests and makes update patches, then waits for the owner's approval before it signs and publishes. A new version backs the case up to `~/Library/Application Support/casefile/backups/` (Claude Code can't read there) before it first opens it, and installs its own `casefile` CLI to `~/.local/bin`.
+- **Go back:** quit casefile, install the earlier release's `casefile-macos-arm64.zip` from GitHub over `~/Applications/casefile.app`, then replace the case folder's contents with the backup made before the version being left (everything except `backup.json`). Work done since that backup is lost.
 - **Schema changes:** bump `SCHEMA_VERSION`, add a migration, then freeze the new version with `UPDATE_SCHEMA_FIXTURE=1 deno task test tests/schema_fixtures_test.ts`.
 - **Reporting a problem:** describe it in general terms ("a person with two aliases on the review screen"). It is reproduced on the CANON case and fixed with a test. Real documents and screenshots stay out of sessions (ADR 11).
 

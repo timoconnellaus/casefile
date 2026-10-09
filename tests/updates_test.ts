@@ -67,15 +67,14 @@ Deno.test("Restart to update closes the case, then starts the new version", asyn
   const updates = new Updates();
   let relaunched = 0;
   const t = await setup({ updates, relaunch: () => Promise.resolve(void relaunched++) });
-  const nothing = await t.user.post("/api/update/restart");
-  assertEquals(nothing.status, 409);
-
   const r = await t.user.post("/api/case/create", {
     dir: t.caseDir,
     passphrase: PASS,
     label: "Test matter",
   });
   assertEquals(r.status, 200, r.text);
+  assertEquals((await t.other.post("/api/update/restart")).status, 401, "signed in only");
+  assertEquals((await t.user.post("/api/update/restart")).status, 409, "nothing waiting");
   updates.markReady("0.3.0");
   assertEquals((await t.user.get("/api/status")).json.update.ready, "0.3.0");
   const restart = await t.user.post("/api/update/restart");

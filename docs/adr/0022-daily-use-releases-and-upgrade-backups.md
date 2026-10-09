@@ -1,7 +1,7 @@
 # 22. Daily use while in development: releases, upgrade backups, a fenced dev copy
 
 Date: 2026-10-09
-Status: Accepted
+Status: Accepted. The release script (`deno task release`) and the restart amendment are superseded by ADR 23; the dev copy, upgrade backup and frozen schemas stand.
 
 ## Context
 

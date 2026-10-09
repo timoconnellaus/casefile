@@ -57,14 +57,14 @@ export function caseRoutes({ state, s }: RouteContext): Route[] {
         update: state.updateStatus,
       };
     }, true),
-    // Open route, like the Unlock screen that offers it: restarting only closes the case, as
-    // quitting does, and opens the new version, which asks for the passphrase (ADR 23).
+    // Signed in only, like every route but three (ADR 13). Locked, the user quits and reopens
+    // casefile instead, which applies the update just the same (ADR 23).
     route("POST", "/api/update/restart", () => {
       if (!state.updateStatus.ready) throw new HttpError(409, "There is no update waiting.");
       // After the reply: the restart closes the case and ends this process.
       setTimeout(() => state.restartForUpdate().catch((e) => console.error(e)), 50);
       return Promise.resolve({ ok: true });
-    }, true),
+    }),
     // Open route. With `recoveryKey: true` a recovery key is made and returned, once.
     route("POST", "/api/case/create", async ({ req, body }) => {
       state.requireNoOtherSession(req);

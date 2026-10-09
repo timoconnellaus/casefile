@@ -57,11 +57,14 @@ function watchForUpdate() {
         showToast(String(e?.message ?? e), { tone: "danger" });
       }
     };
+    // Restarting needs the open case's session; locked, quitting and reopening does the same.
     bar = h(
       "div",
       { class: "update-note", role: "status" },
-      h("span", {}, updateReadyNote(u.ready)),
-      h("button", { type: "button", class: "btn", onclick: restart }, "Restart to update"),
+      h("span", {}, st.signedIn ? updateReadyNote(u.ready) : updateReadyLockedNote(u.ready)),
+      st.signedIn
+        ? h("button", { type: "button", class: "btn", onclick: restart }, "Restart to update")
+        : null,
     );
     document.body.prepend(bar);
     announce(updateReadyNote(u.ready));

@@ -1,5 +1,5 @@
 /**
- * Using casefile while it is being worked on (ADR 22): the upgrade backup `deno task release`
+ * Using casefile while it is being worked on (ADR 22): the upgrade backup a new version
  * makes, a development run that opens only cases in its own folder, and which copy is running.
  * SYNTHETIC data only (ADR 11).
  */

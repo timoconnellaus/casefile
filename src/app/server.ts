@@ -32,38 +32,12 @@ function json(status: number, body: unknown, extra: Record<string, string> = {})
   });
 }
 
-/** Reads a UI file by its full path; throws when there is none. */
-export type UiReader = (full: string) => Promise<Uint8Array<ArrayBuffer>>;
-
-const readFromDisk: UiReader = (full) => Deno.readFile(full);
-
-/**
- * Every UI file, read once. The copy in daily use runs from the main checkout, where releases are
- * merged (ADR 22): served from disk, its screens would change under the running server as soon as
- * a merge landed, before the restart that loads the matching server code.
- */
-export async function snapshotUi(): Promise<UiReader> {
-  const files = new Map<string, Uint8Array<ArrayBuffer>>();
-  const walk = async (dir: string) => {
-    for await (const e of Deno.readDir(dir)) {
-      const full = join(dir, e.name);
-      if (e.isDirectory) await walk(full);
-      else if (e.isFile) files.set(full, await Deno.readFile(full));
-    }
-  };
-  await walk(UI_DIR);
-  return (full) => {
-    const data = files.get(full);
-    return data ? Promise.resolve(data) : Promise.reject(new Deno.errors.NotFound(full));
-  };
-}
-
-async function serveStatic(path: string, read: UiReader): Promise<Response> {
+async function serveStatic(path: string): Promise<Response> {
   const rel = path === "/" ? "index.html" : path.replace(/^\/+/, "");
   const full = normalize(join(UI_DIR, rel));
   if (!full.startsWith(UI_DIR)) return new Response("Not found", { status: 404 });
   try {
-    const data = await read(full);
+    const data = await Deno.readFile(full);
     return new Response(data, {
       headers: {
         "content-type": MIME[extname(full)] ?? "application/octet-stream",
@@ -72,20 +46,12 @@ async function serveStatic(path: string, read: UiReader): Promise<Response> {
     });
   } catch {
     // Unknown paths fall back to the app shell (client-side routing uses the hash, but be lenient).
-    if (!extname(rel)) return serveStatic("/", read);
+    if (!extname(rel)) return serveStatic("/");
     return new Response("Not found", { status: 404 });
   }
 }
 
-/**
- * The app's request handler. The copy in daily use passes `readUi: await snapshotUi()`; by
- * default each request reads the UI from disk, so a development run shows a UI change on reload.
- */
-export function createHandler(
-  state: AppState,
-  opts: { readUi?: UiReader } = {},
-): (req: Request) => Promise<Response> {
-  const read = opts.readUi ?? readFromDisk;
+export function createHandler(state: AppState): (req: Request) => Promise<Response> {
   const routes: Route[] = buildRoutes(state);
   return async (req: Request) => {
     if (!hostAllowed(req)) return new Response("Forbidden host", { status: 403 });
@@ -94,7 +60,7 @@ export function createHandler(
       if (req.method !== "GET" && req.method !== "HEAD") {
         return new Response("Method not allowed", { status: 405 });
       }
-      return await serveStatic(url.pathname, read);
+      return await serveStatic(url.pathname);
     }
     if (!originAllowed(req)) return json(403, { error: "Cross-origin request refused" });
 

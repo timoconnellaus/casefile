@@ -380,29 +380,6 @@ export class Vault {
     return vault;
   }
 
-  /**
-   * Open with the data key itself, handed over by the app that had the case open when it was
-   * restarted for an update (ADR 22, amendment). Like a recovery key, the key must decrypt an
-   * existing vault file before it is trusted.
-   */
-  static async openWithKey(dir: string, rawKey: Uint8Array): Promise<Vault> {
-    if (rawKey.length !== 32) throw new VaultCorruptError(KEYFILE);
-    const raw = bytes(rawKey);
-    const vault = new Vault(dir, await Vault.#importDataKey(raw), raw, await folderId(dir));
-    const files = await vault.list();
-    if (files.length === 0) throw new VaultCorruptError(KEYFILE);
-    await vault.read(files[0]); // throws VaultCorruptError if this is not the vault's key
-    return vault;
-  }
-
-  /**
-   * A copy of the data key, for the app's restart hand-over only (ADR 22, amendment): it goes
-   * down a pipe to the supervisor and on to the new app, never to disk.
-   */
-  handOverKey(): Bytes {
-    return this.rawKey.slice();
-  }
-
   static #importDataKey(raw: Bytes): Promise<CryptoKey> {
     return crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["encrypt", "decrypt"]);
   }

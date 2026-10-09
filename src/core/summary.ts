@@ -1018,7 +1018,6 @@ const LABELS: Record<string, Label> = {
   case_created: ["case", () => "casefile created this case"],
   case_opened: ["case", () => "The case was opened"],
   case_locked: ["case", () => "You locked the case"],
-  restarted_for_update: ["case", () => "casefile restarted to update itself; the case stayed open"],
   public_store_repaired: [
     "case",
     (d) => `casefile repaired Claude's copy of ${count(d.docs, "document") || "some documents"}`,

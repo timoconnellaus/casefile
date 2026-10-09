@@ -1,0 +1,93 @@
+# Desktop releases (ADR 23, docs/RELEASING.md). Pushing a tag vMAJOR.MINOR.PATCH:
+#   build    (macOS): ci, build dist/casefile.app at that version, zip it, make update patches
+#            from the last three releases and check each rebuilds this runtime exactly.
+#   publish  (the `release` environment: waits for the owner's approval; the only job that can
+#            read the signing key): sign latest.json and publish the GitHub release. The app
+#            fetches latest.json from the latest release and refuses it unless the signature is
+#            good.
+name: release
+on:
+  push:
+    tags: ["v*.*.*"]
+permissions:
+  contents: read
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: macos-14
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.7
+      - name: Version from the tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          deno eval 'const p = "deno.json"; const j = JSON.parse(Deno.readTextFileSync(p)); j.version = Deno.args[0]; Deno.writeTextFileSync(p, JSON.stringify(j, null, 2) + "\n");' "$VERSION"
+      - run: deno task ci
+      - run: brew install bsdiff
+      - run: deno task desktop
+      # Deno's launcher can't roll back a version that fails to start (ADR 23), so a build that
+      # doesn't start, or doesn't know its version, is never published.
+      - name: Smoke test the app
+        run: |
+          T=$(mktemp -d); mkdir -p "$T/home" "$T/config"
+          APP=dist/casefile.app/Contents/MacOS/laufey_webview
+          HOME="$T/home" CASEFILE_CONFIG_DIR="$T/config" "$APP" > "$T/app.log" 2>&1 &
+          PORT=""
+          for i in $(seq 60); do
+            sleep 2
+            PID=$(pgrep -f "$APP" | head -1 || true)
+            [ -n "$PID" ] && PORT=$(lsof -nP -a -p "$PID" -iTCP -sTCP:LISTEN 2>/dev/null | awk 'NR>1{print $9}' | sed 's/.*://' | head -1)
+            [ -n "$PORT" ] && break
+          done
+          STATUS=$(curl -fsS "http://127.0.0.1:$PORT/api/status" || true)
+          pkill -TERM -f "$APP" || true
+          cat "$T/app.log"
+          echo "$STATUS" | grep -q "\"version\":\"$VERSION\"" || { echo "The app did not start as $VERSION"; exit 1; }
+      - name: Package
+        run: |
+          mkdir out
+          ditto -c -k --keepParent dist/casefile.app out/casefile-macos-arm64.zip
+      - name: Update patches
+        run: >
+          deno run --allow-read --allow-write --allow-run --allow-env scripts/release/patches.ts
+          --version "$VERSION" --out out
+          --dylib dist/casefile.app/Contents/MacOS/libruntime.dylib --keep 3
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release
+          path: out/
+          retention-days: 7
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.7
+      - uses: actions/download-artifact@v4
+        with:
+          name: release
+          path: out
+      - name: Sign latest.json
+        env:
+          CASEFILE_UPDATE_SIGNING_KEY: ${{ secrets.CASEFILE_UPDATE_SIGNING_KEY }}
+        run: deno task release:manifest --version "${GITHUB_REF_NAME#v}" --dir out $(cat out/patches.args)
+      - name: Installer
+        run: sed "s|__REPO__|${GITHUB_REPOSITORY}|" scripts/install.sh > out/install.sh
+      - name: Publish
+        run: |
+          gh release create "$GITHUB_REF_NAME" --title "casefile ${GITHUB_REF_NAME#v}" --generate-notes \
+            out/casefile-macos-arm64.zip out/latest.json out/install.sh $(ls out/patch-*.bin 2>/dev/null)

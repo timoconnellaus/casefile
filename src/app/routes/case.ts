@@ -57,7 +57,7 @@ export function caseRoutes({ state, s }: RouteContext): Route[] {
         update: state.updateStatus,
       };
     }, true),
-    // Signed in only, like every route but three (ADR 13). Locked, the user quits and reopens
+    // Signed in only, like every route but four (ADR 13, ADR 29). Locked, the user quits and reopens
     // casefile instead, which applies the update just the same (ADR 24).
     route("POST", "/api/update/restart", () => {
       if (!state.updateStatus.ready) throw new HttpError(409, "There is no update waiting.");

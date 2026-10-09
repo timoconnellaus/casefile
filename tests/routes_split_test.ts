@@ -91,10 +91,10 @@ Deno.test("the split route modules keep every route api.ts had", async () => {
   assertEquals(routes.length, new Set(routes).size, "no duplicates");
   assertEquals(BEFORE_SPLIT.filter((r) => !routes.includes(r)), [], "routes missing");
   assertEquals(REMOVED.filter((r) => routes.includes(r)), [], "deprecated routes are gone");
-  // Only the three routes that were open before may be open.
+  // Only the three routes that were open before may be open, and restoring a backup (ADR 29).
   assertEquals(
     routes.filter((r) => r.endsWith(" open")).sort(),
-    BEFORE_SPLIT.filter((r) => r.endsWith(" open")).sort(),
+    [...BEFORE_SPLIT.filter((r) => r.endsWith(" open")), "POST /api/case/restore open"].sort(),
   );
 });
 

@@ -7,8 +7,14 @@ import { casePaths, isCaseDir } from "../core/case.ts";
 import { InvalidInputError } from "../core/publicdb.ts";
 import { CaseInUseError, CaseLock } from "../core/caselock.ts";
 import { CaseSession, type CaseSettings } from "../core/session.ts";
-import { writeBackup } from "../core/backupfile.ts";
-import { KDF_ITERATIONS, Vault, VaultCorruptError, WrongPassphraseError } from "../core/vault.ts";
+import { restoreBackup, writeBackup } from "../core/backupfile.ts";
+import {
+  KDF_ITERATIONS,
+  type KeySecret,
+  Vault,
+  VaultCorruptError,
+  WrongPassphraseError,
+} from "../core/vault.ts";
 import { HttpError } from "./routes/context.ts";
 import type { ClaudeCodeEnv } from "./claudecode.ts";
 import type { BuildInfo } from "./build.ts";
@@ -509,6 +515,53 @@ export class AppState {
       // only the default for next time
     }
     return { file: basename(r.path), folder: realDir, createdAt: r.createdAt, bytes: r.bytes };
+  }
+
+  /**
+   * Restore a single-file backup into `dir`, a new or empty folder, and open it as a case of its
+   * own (ADR 29). The passphrase or recovery key goes through the same limit as unlocking,
+   * counted per backup file. With a recovery key, `newPassphrase` becomes the restored case's
+   * passphrase. The case the backup was made from is not touched.
+   */
+  async restoreCase(file: string, dir: string, secret: KeySecret, newPassphrase?: string) {
+    const path = this.#home(file);
+    const target = this.#expand(dir);
+    if ("recoveryKey" in secret && (newPassphrase ?? "").length < 12) {
+      throw new HttpError(400, "Use a new passphrase of at least 12 characters");
+    }
+    const st = await Deno.stat(path).catch(() => null);
+    if (!st?.isFile) throw new HttpError(400, "casefile can't find that backup file.");
+    const r = await this.#withPassphrase(
+      path,
+      (resolved) =>
+        restoreBackup(resolved, target, secret, {
+          newPassphrase,
+          kdfIterations: this.#iterations,
+        }),
+    );
+    let s: CaseSession;
+    try {
+      s = await CaseSession.open(
+        r.root,
+        "passphrase" in secret ? secret.passphrase : newPassphrase!,
+      );
+    } catch (e) {
+      throw new HttpError(
+        500,
+        `The backup was restored to ${r.root}, but casefile couldn't open it: ${
+          (e as Error).message
+        }`,
+      );
+    }
+    // The restored case was backed up when the backup was made.
+    await s.writeVaultJson(BACKUPS_FILE, { lastAt: r.header.createdAt } satisfies BackupRecord);
+    await this.#adopt(s);
+    s.log("user", "case_restored", {
+      backup_made: r.header.createdAt,
+      backup_schema: r.header.publicDbSchema,
+      recovery_key: "recoveryKey" in secret,
+    });
+    return { caseDir: r.root, backupMade: r.header.createdAt };
   }
 
   #open(): CaseSession {

@@ -1343,6 +1343,16 @@ const LABELS: Record<string, Label> = {
     () => "You backed up the case to an encrypted file",
     (d) => typeof d.files === "number" ? plural(d.files, "file") : null,
   ],
+  case_restored: [
+    "settings",
+    () => "This case was restored from a backup",
+    (d) =>
+      typeof d.backup_made === "string" && /^\d{4}-\d\d-\d\d/.test(d.backup_made)
+        ? `Backup made ${d.backup_made.slice(0, 10)}${
+          d.recovery_key === true ? ", opened with the recovery key" : ""
+        }`
+        : null,
+  ],
   pd_ai_confirmed: [
     "settings",
     () => "You confirmed your Claude settings (the Court’s rules on AI, PD-AI 5.4)",

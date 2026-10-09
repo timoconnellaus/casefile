@@ -8,11 +8,17 @@ import { CLAUDE_SETTINGS } from "../src/core/case.ts";
 import { AFFIDAVIT, AFFIDAVIT_TITLE, tempDir } from "./fixtures/synthetic.ts";
 import { allRoutes, importAndPublish, setup, withCase } from "./helpers/app.ts";
 
-Deno.test("open routes are still exactly status, case/open and case/create", async () => {
-  // Deliberately restated here: wave 1 adds recovery to case/open, not a new open route.
+Deno.test("open routes are still exactly status, case/open, case/create and case/restore", async () => {
+  // Deliberately restated here: wave 1 adds recovery to case/open, not a new open route. ADR 29
+  // adds restoring a backup, which has to work before any case is open.
   const { state } = await setup();
   const open = allRoutes(state).filter((r) => r.open).map((r) => `${r.method} ${r.path}`).sort();
-  assertEquals(open, ["GET /api/status", "POST /api/case/create", "POST /api/case/open"]);
+  assertEquals(open, [
+    "GET /api/status",
+    "POST /api/case/create",
+    "POST /api/case/open",
+    "POST /api/case/restore",
+  ]);
   for (
     const p of [
       "GET /api/claude-code",

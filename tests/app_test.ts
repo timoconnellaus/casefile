@@ -95,10 +95,16 @@ Deno.test("cross-origin POSTs are refused; same-origin and no-origin POSTs are a
 
 // ── locked / signed-out ─────────────────────────────────────────────────────
 
-Deno.test("only status, case/open and case/create are open routes", async () => {
+Deno.test("only status, case/open, case/create and case/restore are open routes", async () => {
   const { state } = await setup();
   const open = allRoutes(state).filter((r) => r.open).map((r) => `${r.method} ${r.path}`).sort();
-  assertEquals(open, ["GET /api/status", "POST /api/case/create", "POST /api/case/open"]);
+  assertEquals(open, [
+    "GET /api/status",
+    "POST /api/case/create",
+    "POST /api/case/open",
+    // ADR 29: restoring a backup works before any case is open.
+    "POST /api/case/restore",
+  ]);
 });
 
 Deno.test("every non-open route is 423 when locked and 401 without the cookie when unlocked", async () => {

@@ -3,8 +3,8 @@
 // it, and what Claude did with it through casefile. Also exports the helpers the Documents list
 // shares (origin labels, "Cited in" items, dates).
 import { append, h } from "../dom.js";
-import { action, api, ApiError, listPeople } from "../lib.js";
-import { formatDay } from "../model.js";
+import { action, api, ApiError, errorText, listPeople } from "../lib.js";
+import { colourClass, formatDay, tokenText } from "../model.js";
 import {
   ActorLabel,
   announce,
@@ -338,6 +338,7 @@ export default async function view(main, params, ctx) {
         onChange: (m) => {
           mode = m;
           renderText();
+          finder?.refresh();
         },
       }),
       Button("Link selected lines…", {
@@ -438,19 +439,245 @@ export default async function view(main, params, ctx) {
     ActivitySection(doc, activity),
   );
 
+  // ── jump between one person's mentions, and rename their label ──
+  const finder = published && key
+    ? KeyFinder({ entities, textWrap, rerender, keys: ctx?.shortcuts !== false })
+    : null;
+
   const body = h(
     "div",
     { class: "doc-body" },
     key,
     h("div", { class: "columns doc-columns" }, mainCol, side),
+    finder?.bar,
   );
   main.replaceChildren(
     ...[head, OriginalFile(doc.id, doc.file), confirmSlot, callouts, body, live].filter(Boolean),
   );
-  linkEntities(body);
+  const linker = linkEntities(body, { onPin: (role, el) => finder?.pinned(role, el) });
+  finder?.connect(linker);
 
   if (focusLine) main.querySelector(`#line-${focusLine}`)?.scrollIntoView({ block: "center" });
 }
+
+// ── key finder: Previous / Next through one entry's mentions, and Rename ──────
+
+/**
+ * The bar shown while a key entry (or a name in the text) is pinned: "Mother · 3 of 12 · line
+ * 40", Previous / Next (also the n and p keys, unless shortcuts are off in Settings), Rename its
+ * label everywhere, and Done.
+ */
+function KeyFinder({ entities, textWrap, rerender, keys }) {
+  let role = null;
+  let at = -1;
+  let linker = null;
+  let quiet = false;
+  const label = h("span", { class: "doc-finder-label" });
+  const pos = h("span", { class: "doc-finder-pos num", "aria-live": "polite" });
+  const prev = Button("Previous", {
+    onclick: () => step(-1),
+    "aria-keyshortcuts": keys ? "p" : null,
+    title: keys ? "Previous mention (p)" : null,
+  });
+  const next = Button("Next", {
+    onclick: () => step(1),
+    "aria-keyshortcuts": keys ? "n" : null,
+    title: keys ? "Next mention (n)" : null,
+  });
+  const rename = Button("Rename…", { onclick: () => renameRole() });
+  const done = Button("Done", { onclick: () => linker?.clear() });
+  const bar = h(
+    "div",
+    { class: "doc-finder", role: "region", "aria-label": "Mentions", hidden: true },
+    label,
+    pos,
+    h("span", { class: "spacer" }),
+    prev,
+    next,
+    rename,
+    done,
+  );
+
+  const entityOf = (r) => entities.find((e) => e.role === r);
+  const nameOf = (r) => entityOf(r)?.forms?.full ?? tokenText(r);
+  // One mark per mention: the "You see" column, or the "Claude sees" column on its own.
+  const marks = () =>
+    role
+      ? [...textWrap.querySelectorAll(
+        `${mode === "token" ? ".lines-claude" : ".lines-real"} [data-role="${CSS.escape(role)}"]`,
+      )]
+      : [];
+
+  const show = (scroll) => {
+    for (const el of textWrap.querySelectorAll(".is-current")) el.classList.remove("is-current");
+    const all = marks();
+    if (!role || !all.length) {
+      pos.textContent = role ? "Not in this view" : "";
+      prev.disabled = next.disabled = true;
+      return;
+    }
+    prev.disabled = next.disabled = all.length < 2 && at >= 0;
+    if (at < 0) {
+      pos.textContent = `${all.length} ${all.length === 1 ? "mention" : "mentions"}`;
+      return;
+    }
+    const el = all[at];
+    el.classList.add("is-current");
+    const line = el.closest("tr[id^='line-']")?.id.slice(5);
+    pos.textContent = `${at + 1} of ${all.length}${line ? ` · line ${line}` : ""}`;
+    if (scroll) el.scrollIntoView({ block: "center", behavior: "smooth" });
+  };
+
+  const step = (d) => {
+    const all = marks();
+    if (!all.length) return;
+    at = at < 0 ? (d > 0 ? 0 : all.length - 1) : (at + d + all.length) % all.length;
+    show(true);
+  };
+
+  const renameRole = async () => {
+    if (!role) return;
+    const from = role;
+    const e = entityOf(from);
+    const input = h("input", {
+      type: "text",
+      value: from,
+      spellcheck: "false",
+      autocomplete: "off",
+      class: "mono",
+    });
+    const err = h("p", { class: "people-error", role: "alert" });
+    const submit = async () => {
+      const to = input.value.trim();
+      if (!to || to === from) return false;
+      await api("PATCH", `/api/entities/${encodeURIComponent(from)}`, { role: to });
+      return to;
+    };
+    for (;;) {
+      const go = openDialog({
+        title: `Rename ${tokenText(from)}`,
+        body: [
+          h(
+            "p",
+            {},
+            `What Claude sees instead of ${
+              e?.forms?.full ?? "this"
+            }. A relationship, never a name. Renaming updates every document, note and draft, and anything you checked that mentions ${
+              e?.forms?.full ?? "it"
+            } goes back to To check.`,
+          ),
+          Field({ label: "Label Claude sees", control: input }),
+          err,
+        ],
+        actions: [
+          { label: "Cancel", value: null },
+          { label: "Rename everywhere", value: true, variant: "primary" },
+        ],
+      });
+      queueMicrotask(() => {
+        input.focus();
+        input.select();
+        input.onkeydown = (ev) => {
+          if (ev.key === "Enter") {
+            ev.preventDefault();
+            input.closest("dialog")?.querySelector(".btn-primary")?.click();
+          }
+        };
+      });
+      if ((await go) !== true) return;
+      try {
+        const to = await submit();
+        if (!to) return;
+        const msg = `Renamed ${tokenText(from)} to ${tokenText(to)} everywhere.`;
+        announce(msg);
+        showToast(msg, {
+          undo: async () => {
+            try {
+              await api("PATCH", `/api/entities/${encodeURIComponent(to)}`, { role: from });
+              announce(`Renamed back to ${tokenText(from)}.`);
+              pendingPin = from;
+              await rerender();
+            } catch (x) {
+              showToast(errorText(x), { tone: "danger" });
+            }
+          },
+        });
+        pendingPin = to;
+        await rerender();
+        return;
+      } catch (x) {
+        err.textContent = errorText(x);
+      }
+    }
+  };
+
+  const onKey = (ev) => {
+    if (!keys || bar.hidden || ev.metaKey || ev.ctrlKey || ev.altKey) return;
+    const t = ev.target;
+    if (t instanceof Element && t.closest("input, textarea, select, [contenteditable], dialog")) {
+      return;
+    }
+    if (ev.key === "n" || ev.key === "p") {
+      ev.preventDefault();
+      step(ev.key === "n" ? 1 : -1);
+    }
+  };
+  document.addEventListener("keydown", onKey);
+
+  return {
+    bar,
+    connect(l) {
+      linker = l;
+      // Rerendered after a rename: keep the renamed entry pinned.
+      if (pendingPin && textWrap.isConnected) {
+        const r = pendingPin;
+        pendingPin = null;
+        l.pin(r);
+      }
+      // The listener goes when the page does.
+      const gone = new MutationObserver(() => {
+        if (!bar.isConnected) {
+          document.removeEventListener("keydown", onKey);
+          gone.disconnect();
+        }
+      });
+      gone.observe(document.body, { childList: true, subtree: true });
+    },
+    /** The linker pinned `r` (null: cleared), by clicking `el`. */
+    pinned(r, el) {
+      role = r;
+      bar.hidden = !r;
+      if (!r) {
+        show(false);
+        return;
+      }
+      label.replaceChildren(
+        h("strong", {}, nameOf(r)),
+        " ",
+        h("span", { class: `token ${colourClass(entityOf(r) ?? {})}` }, tokenText(r)),
+      );
+      rename.setAttribute("aria-label", `Rename ${tokenText(r)} everywhere`);
+      const all = marks();
+      // A name clicked in the text starts there; a key entry jumps to the first mention.
+      const i = el ? all.indexOf(el) : -1;
+      at = i >= 0 ? i : all.length ? 0 : -1;
+      show(i < 0 && !quiet);
+    },
+    /** The view changed (You see / Claude sees / Side by side): the same mention, highlighted. */
+    refresh() {
+      if (!role || !linker) return;
+      const keep = at;
+      quiet = true;
+      linker.pin(role);
+      quiet = false;
+      at = Math.min(keep, marks().length - 1);
+      show(true);
+    },
+  };
+}
+
+/** A role to pin again once the page is rebuilt after a rename. */
+let pendingPin = null;
 
 function stateWords(state) {
   return {

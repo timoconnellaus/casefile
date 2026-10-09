@@ -1,7 +1,13 @@
 import { createHmac } from "node:crypto";
 import { type CasePaths, casePaths, isCaseDir, writeCaseScaffold } from "./case.ts";
 import { CaseLock } from "./caselock.ts";
-import { detect, type NewEntityProposal, type ProposedSpan } from "./detect/pipeline.ts";
+import {
+  detect,
+  findKnownSpans,
+  type NewEntityProposal,
+  type ProposedSpan,
+} from "./detect/pipeline.ts";
+import { findRuleSpans } from "./detect/rules.ts";
 import type { Detector } from "./detect/types.ts";
 import type { ReasoningEffort } from "./detect/llm.ts";
 import { recheckTypedText, type TypedTextRecheck } from "./typedtext.ts";
@@ -2231,6 +2237,15 @@ export class CaseSession {
       throw new InvalidInputError("Both entries must be in who’s who.");
     }
     if (from === into) throw new InvalidInputError("Choose a different entry to merge into.");
+    // Only like with like: a person with a person, a number with the same kind of number (security
+    // review). Places, organisations, schools and "other" may be merged with each other.
+    const kindGroup = (k: EntityKind) =>
+      ["place", "organisation", "school", "other"].includes(k) ? "places" : k;
+    if (kindGroup(this.registry.get(from)!.kind) !== kindGroup(this.registry.get(into)!.kind)) {
+      throw new InvalidInputError(
+        "These are different kinds of entry (a person and a place, say), so they can’t be merged.",
+      );
+    }
     // Check on a copy: no role name may give away a value it now carries.
     const copy = new EntityRegistry(this.registry.toJSON());
     const was = new Map(copy.list().map((e) => [e.role, copy.revealingWords(e.role)]));
@@ -2280,15 +2295,26 @@ export class CaseSession {
     }
     const values = [e.forms.full, e.forms.first, e.forms.surname, e.forms.title, ...e.aliases]
       .filter((v): v is string => !!v);
-    const own = new Set(values.map(normaliseVariant));
-    for (const v of this.registry.variants({ leak: true })) {
-      if (v.entity.role !== role && own.has(normaliseVariant(v.text))) {
+    // Its values are about to be written as they are, into documents and into Claude's own notes
+    // (which no leak check reads): none may contain anyone else's value, even inside a longer one
+    // ("Daniel Okafor Jr"), or look like a number casefile always replaces (security review).
+    const without = new EntityRegistry(this.registry.toJSON());
+    without.remove(role);
+    for (const v of values) {
+      const other = findKnownSpans(v, without, { leak: true })[0];
+      if (other) {
+        const owner = (other.label ?? "").split(".")[0];
         throw new InvalidInputError(
-          `“${v.text}” is also how ${
-            formatToken(v.entity.role)
+          `“${v}” contains “${other.text}”, which is how ${
+            formatToken(owner)
           } is written, so it can’t be left as written. Merge this entry into ${
-            formatToken(v.entity.role)
-          } instead.`,
+            formatToken(owner)
+          } instead, or keep it.`,
+        );
+      }
+      if (findRuleSpans(v).length) {
+        throw new InvalidInputError(
+          `“${v}” looks like a number or contact detail casefile always replaces, so it can’t be left as written.`,
         );
       }
     }

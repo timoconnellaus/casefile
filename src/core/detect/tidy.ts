@@ -144,6 +144,16 @@ phone number, an email, an identification number or a date of birth.
 
 "why": one short sentence. If nothing needs tidying, reply {"suggestions":[]}.`;
 
+/** Kinds "Tidy up" never suggests removing. */
+const NEVER_REMOVE: ReadonlySet<EntityKind> = new Set([
+  "person",
+  "address",
+  "phone",
+  "email",
+  "identifier",
+  "date_of_birth",
+]);
+
 /** Entries per request; the people come first so merges among them are seen together. */
 const BATCH = 60;
 
@@ -191,10 +201,9 @@ export function checkSuggestions(
     } else if (s.type === "remove") {
       const e = registry.get(String(s.role));
       if (!e || registry.isSafetySensitive(e.role)) continue;
-      if (["person", "address", "phone", "email", "identifier", "date_of_birth"].includes(e.kind)) {
-        // The model may only clear things that look harmless; a name is never one.
-        if (!harmlessShape(e.forms.full, e.kind)) continue;
-      }
+      // Never a name, contact detail, identifier or birth date, whatever it looks like (security
+      // review): those are only ever merged or renamed.
+      if (NEVER_REMOVE.has(e.kind)) continue;
       out.push({ type: "remove", role: e.role, why: why(s) || "Identifies no one.", source });
     }
   }

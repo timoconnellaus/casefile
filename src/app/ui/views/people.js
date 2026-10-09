@@ -643,7 +643,11 @@ export default async function view(main, params, _ctx) {
 
   // The same person or place as another entry: merge into it (ADR 25).
   function mergeSection(e) {
-    const others = all.entities.filter((o) => o.role !== e.role)
+    // Like with like, as the server requires: people with people, a number with the same kind.
+    const kindGroup = (k) =>
+      ["place", "organisation", "school", "other"].includes(k) ? "places" : k;
+    const others = all.entities
+      .filter((o) => o.role !== e.role && kindGroup(o.kind) === kindGroup(e.kind))
       .sort((a, b) =>
         Number(b.kind === e.kind) - Number(a.kind === e.kind) || a.role.localeCompare(b.role)
       );

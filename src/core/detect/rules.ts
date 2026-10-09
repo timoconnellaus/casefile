@@ -252,26 +252,38 @@ export class RuleDetector implements Detector {
 
 // ── harmless shapes (ADR 25) ───────────────────────────────────────────────
 
-const TIME = /^\d{1,2}(?:[:.]\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?$|^\d{1,2}[:.]\d{2}(?:[:.]\d{2})?$/i;
-const DATE_ONLY =
-  /^(?:\d{1,2}(?:st|nd|rd|th)?\s+)?(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?(?:\s+\d{1,2}(?:st|nd|rd|th)?)?,?(?:\s+\d{2,4})?$|^\d{1,2}[/.-]\d{1,2}[/.-]\d{2,4}$|^\d{4}-\d{2}-\d{2}$/i;
+// Every shape needs a digit, and each word must be exactly a month, unit or "am"/"pm": "Marcus",
+// "June" or "Augustine" alone is a name, never a date (security review, ADR 25).
+const MONTH =
+  "(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sept?(?:ember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)";
+const TIME =
+  /^\d{1,2}[:.]\d{2}(?:[:.]\d{2})?\s*(?:am|pm|a\.m\.|p\.m\.)?$|^\d{1,2}\s*(?:am|pm|a\.m\.|p\.m\.)$/i;
+const DATE_ONLY = new RegExp(
+  `^\\d{1,2}(?:st|nd|rd|th)?\\s+${MONTH}\\.?,?(?:\\s+\\d{4})?$` +
+    `|^${MONTH}\\.?\\s+\\d{1,2}(?:st|nd|rd|th)?,?(?:\\s+\\d{4})?$` +
+    `|^${MONTH}\\.?\\s+\\d{4}$` +
+    `|^\\d{1,2}[/.-]\\d{1,2}[/.-](?:\\d{2}|\\d{4})$|^\\d{4}-\\d{2}-\\d{2}$`,
+  "i",
+);
 const AMOUNT = /^(?:aud\s*)?\$\s?\d[\d,]*(?:\.\d{2})?$|^\d[\d,]*(?:\.\d{2})?\s*(?:dollars|aud)$/i;
 const DURATION =
   /^\d+(?:\.\d+)?\s*(?:minutes?|mins?|hours?|hrs?|days?|weeks?|months?|years?|yrs?)$/i;
-const WEEKDAY = /^(?:mon|tues?|wed(?:nes)?|thur?s?|fri|sat(?:ur)?|sun)(?:day)?$/i;
+
+/** Kinds a harmless shape can apply to: never a name, contact detail, identifier or birth date. */
+const SHAPE_KINDS: ReadonlySet<EntityKind> = new Set(["other", "place", "organisation"]);
 
 /**
  * Why a value identifies no one by its shape alone (a time, a date…), or null. Model detections
  * of such values are dropped (pipeline.ts), and "Tidy up" suggests no longer replacing them.
+ * Only for kinds `other`, `place` and `organisation`: a person, address, phone, email, identifier
+ * or date of birth is identifying whatever it looks like.
  */
 export function harmlessShape(value: string, kind: EntityKind): string | null {
   const v = value.replace(/\s+/g, " ").trim();
-  // A date of birth or an identifier is identifying whatever it looks like.
-  if (kind === "date_of_birth" || kind === "identifier" || kind === "phone") return null;
+  if (!SHAPE_KINDS.has(kind) || !/\d/.test(v)) return null;
   if (TIME.test(v)) return "It is a time of day.";
   if (DATE_ONLY.test(v)) return "It is an ordinary date.";
   if (AMOUNT.test(v)) return "It is an amount of money.";
   if (DURATION.test(v)) return "It is a length of time.";
-  if (WEEKDAY.test(v)) return "It is a day of the week.";
   return null;
 }

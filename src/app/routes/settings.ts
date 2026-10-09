@@ -1,5 +1,6 @@
 import { restoreScaffold, UnsafeCasePathError } from "../../core/case.ts";
 import { isReasoningEffort, REASONING_EFFORTS } from "../../core/detect/llm.ts";
+import { ModelPinError } from "../../core/detect/ner.ts";
 import type { CaseSession } from "../../core/session.ts";
 import { claudeCodeStatus, openTerminalIn } from "../claudecode.ts";
 import { llmWords } from "../llmwords.ts";
@@ -29,6 +30,8 @@ export function settingsRoutes({ state, s }: RouteContext): Route[] {
         claudeSetup: st.claudeSetup,
         nerEnabled: st.nerEnabled,
         nameDetection: s().nameDetection,
+        // Ask the name finder question when the case is opened (ADR 26).
+        nameFinderAsk: !st.nameFinderAsked && !st.nerEnabled,
         llm: st.llm
           ? {
             ...st.llm,
@@ -77,7 +80,11 @@ export function settingsRoutes({ state, s }: RouteContext): Route[] {
         extra.user_role = role ?? null;
       }
       if (typeof b.label === "string") patch.label = b.label;
-      if (typeof b.nerEnabled === "boolean") patch.nerEnabled = b.nerEnabled;
+      if (typeof b.nerEnabled === "boolean") {
+        patch.nerEnabled = b.nerEnabled;
+        // Choosing in Settings answers the question (ADR 26).
+        if (!s().settings.nameFinderAsked) patch.nameFinderAsked = new Date().toISOString();
+      }
       if (b.llm === null) patch.llm = null;
       else if (b.llm && typeof b.llm === "object") {
         const prev = s().settings.llm;
@@ -120,6 +127,28 @@ export function settingsRoutes({ state, s }: RouteContext): Route[] {
       if (patch.idleLockMinutes !== undefined) await state.rememberIdleLock();
       state.touch(); // a new idle-lock setting applies from now
       return { ok: true };
+    }),
+    // The name finder question (ADR 26), and the Settings switch. `on: true` gets the name finder
+    // ready there and then, downloading it the first time (about 110 MB, pinned, hash-checked), so
+    // a failure (offline, a download that doesn't match) is reported now and it stays off: the
+    // case works with rules only, and says so. Never downloaded without this explicit answer.
+    route("POST", "/api/settings/name-finder", async ({ body }) => {
+      const b = await body();
+      if (typeof b.on !== "boolean") throw new HttpError(400, "on must be true or false");
+      let error: string | null = null;
+      if (b.on) {
+        try {
+          await state.prepareNameFinder();
+        } catch (e) {
+          error = nameFinderProblem(e);
+        }
+      }
+      const on = b.on && error === null;
+      await s().updateSettings({ nerEnabled: on, nameFinderAsked: new Date().toISOString() });
+      await state.configureDetectors();
+      // Whether it was asked for and whether it is on: nothing about why it failed.
+      s().log("user", "name_finder_chosen", { asked_on: b.on, on });
+      return { on, nameDetection: s().nameDetection, error };
     }),
     // Where the language model runs. `reason`/`why` are technical (kept for the log and older
     // screens); `summary` and `detail` are the plain words Settings shows (llmwords.ts).
@@ -197,6 +226,15 @@ export function settingsRoutes({ state, s }: RouteContext): Route[] {
       return { opened, url: EXTERNAL_LINKS[id].url };
     }),
   ];
+}
+
+/** Why the name finder couldn't be set up, in plain words (no paths or server replies). */
+function nameFinderProblem(e: unknown): string {
+  if (e instanceof ModelPinError) {
+    return "its downloaded files weren’t the expected ones, so casefile won’t use them";
+  }
+  return "it couldn’t be downloaded or loaded (check the internet connection, then try again " +
+    "in Settings)";
 }
 
 export const settingsErrors: ErrorMapper[] = [

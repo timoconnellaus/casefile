@@ -37,7 +37,7 @@ This file says what is built, what is deliberately not built and why, and what i
 2. **Detect**, in layers, on folded text with one matcher (ADR 6):
    - Australian rules: Medicare, TFN, ABN/ACN (checksums), phone, email, street address, suburb/state/postcode, dates of birth, court file numbers, BSB/account, licence/passport, social-media handles and profile URLs. Role hints such as `medicare_1`, `tfn_1`, `file_number`.
    - Every form, alias and identifying part of every entity already in the case.
-   - Optional NER (pinned `Xenova/bert-base-NER` via transformers.js, offline; off by default) and an optional LLM pass through a user-configured OpenAI-compatible endpoint, refused if it is remote (including Ollama `:cloud` models) unless the user allows it (ADR 12). The LLM pass sends the text in 3000-character chunks that overlap by about 200 characters (each starts at a word), so a name cut by a chunk boundary is whole in the next chunk; findings are de-duplicated by their offset in the whole text.
+   - NER, the name finder (pinned `Xenova/bert-base-NER` via transformers.js, offline). The first time a case is opened the app asks whether to turn it on, with "On" chosen, saying it downloads about 110 MB once from Hugging Face, pinned and hash-checked; it is downloaded only on that answer, while the user waits. If the user declines, or the download fails or the computer is offline, the case works with rules only and says so (ADR 26) and an optional LLM pass through a user-configured OpenAI-compatible endpoint, refused if it is remote (including Ollama `:cloud` models) unless the user allows it (ADR 12). The LLM pass sends the text in 3000-character chunks that overlap by about 200 characters (each starts at a word), so a name cut by a chunk boundary is whole in the next chunk; findings are de-duplicated by their offset in the whole text.
    - **Language model thinking** (Settings → Finding names → Details, "Thinking (reasoning_effort)"): every request to the language model (the name pass and the extra checks) carries `"reasoning_effort": "none"` by default, because a thinking model in LM Studio (e.g. Qwen 3.6) does not answer a chunk within the 120 s limit with thinking on. The user can choose low, medium or high, or "Leave it to the server" (the field is not sent). A server that rejects the field (400) is asked again without it, as for JSON mode, and the working combination is remembered while the settings stay the same. Changes are logged (`settings_changed`, `reasoning_effort`).
    - Propagation of anything found once through the whole document.
    - A suggested origin from stamps such as "produced under subpoena".
@@ -103,7 +103,7 @@ These are deliberate (REBUILD-PLAN section 3). The UI says so honestly rather th
 
 **Detection**
 
-- Name detection is off by default: without NER or an LLM, only identifiers and names already in the case are caught, and a new name in a title is not; the app warns (ADR 3, ADR 6).
+- Name detection needs the name finder or an LLM. The name finder is offered, "On" chosen, the first time a case is opened (ADR 26); if the user declines or it can't be downloaded, only identifiers and names already in the case are caught, and a new name in a title is not; the app warns in Settings and on the review screen (ADR 3, ADR 6).
 - Nicknames that share no word with the full name are caught only once added as aliases; homoglyphs from other scripts are not folded (ADR 6).
 
 **Checks and flags that rest on the user's own answers**

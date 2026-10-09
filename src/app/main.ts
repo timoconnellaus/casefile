@@ -9,7 +9,7 @@
 import { resolve } from "@std/path";
 import { createHandler } from "./server.ts";
 import { AppState } from "./state.ts";
-import { appDetectorFactory, appLlmChecker } from "./detectors.ts";
+import { appDetectorFactory, appLlmChecker, appNameFinderLoader } from "./detectors.ts";
 import { readBuildInfo } from "./build.ts";
 import { configDir } from "./paths.ts";
 import { appBundle, relaunch, relaunchIfStale, Updates } from "./updates.ts";
@@ -35,6 +35,7 @@ if (import.meta.main) {
       : undefined,
     detectorFactory: appDetectorFactory,
     llmChecker: appLlmChecker,
+    nameFinderLoader: appNameFinderLoader,
   });
   // Straight after an update was swapped in, this may still be the old version (updates.ts).
   if (build.version && bundle && await relaunchIfStale(bundle, build.version, config)) Deno.exit(0);

@@ -1210,6 +1210,15 @@ const LABELS: Record<string, Label> = {
         : null;
     },
   ],
+  name_finder_chosen: [
+    "settings",
+    (d) =>
+      d.on
+        ? "You turned on the name finder"
+        : d.asked_on
+        ? "You chose the name finder, but it couldn’t be set up; it stayed off"
+        : "You chose to leave the name finder off",
+  ],
   typed_text_rechecked: [
     "people",
     (d) =>

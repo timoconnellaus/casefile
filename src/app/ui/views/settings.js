@@ -7,6 +7,7 @@ import { buildNote, updateCheckNote } from "../model.js";
 import {
   announce,
   Callout,
+  chooseNameFinder,
   confirmDialog,
   ExternalLink,
   Icon,
@@ -606,7 +607,7 @@ export default async function view(main, _params, ctx) {
     const llm = st.llm;
     const chk = S.llmCheck;
     const nerStatus = !st.nerEnabled
-      ? "Off. Look for names yourself when you review each document."
+      ? "Off. Look for names yourself when you review each document. Turning it on downloads it once (about 110 MB) from Hugging Face."
       : st.nameDetection
       ? "Working."
       : "On, but not working yet. It may still be getting ready, or it couldn’t start. Until it works, look for names yourself when you review.";
@@ -789,13 +790,9 @@ export default async function view(main, _params, ctx) {
           title: "Name finder",
           sub: `Finds people, places, schools and organisations. ${nerStatus}`,
           onChange: async (on) => {
-            await api("PUT", "/api/settings", { nerEnabled: on });
+            // Turning it on downloads the model the first time; chooseNameFinder says so (ADR 26).
+            await chooseNameFinder(on);
             S.st = await api("GET", "/api/settings");
-            announce(
-              on
-                ? "Name finder turned on. Recorded in the Log."
-                : "Name finder turned off. Recorded in the Log.",
-            );
             renderDetect();
             secs.detect.querySelector("#set-ner")?.focus();
           },

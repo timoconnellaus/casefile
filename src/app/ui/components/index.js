@@ -20,6 +20,12 @@ export { SourcePanel } from "./source.js";
 export { CheckList } from "./checklist.js";
 export { ExtraCheck } from "./extracheck.js";
 export {
+  askNameFinder,
+  chooseNameFinder,
+  NAME_FINDER_DOWNLOAD,
+  NAME_FINDER_OFF,
+} from "./namefinder.js";
+export {
   announce,
   Callout,
   clearLive,

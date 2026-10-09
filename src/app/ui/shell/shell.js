@@ -5,6 +5,7 @@ import { toCheckCount, updateReadyNote, updateRolledBackNote, windowTitle } from
 import { DEFAULT_HASH, matchRoute, redirectFor, UNLOCK } from "../routes.js";
 import {
   announce,
+  askNameFinder,
   clearLive,
   confirmDialog,
   EmptyState,
@@ -87,6 +88,7 @@ export function startApp(root) {
   let wasLocked = false; // the last render was the Unlock screen
   let header = null;
   let rendering = Promise.resolve();
+  let askingNameFinder = false;
 
   const ctx = {
     get status() {
@@ -229,6 +231,14 @@ export function startApp(root) {
     // Just opened: mention details that look like a safety-sensitive person's but aren't linked
     // to anyone (security review). Linking is the user's choice, in People.
     if (wasLocked) suggestLinks();
+    // Just opened (or loaded) and never asked: the name finder question, "On" chosen (ADR 26).
+    // Closed without an answer, it is asked again the next time the case is opened.
+    if ((wasLocked || first) && ctx.settings.nameFinderAsk && !askingNameFinder) {
+      askingNameFinder = true;
+      askNameFinder().then((answered) => answered && schedule()).finally(() => {
+        askingNameFinder = false;
+      });
+    }
     // Move focus to the new screen (not on first load, so the browser's own start applies; but
     // after unlocking, as after any navigation).
     if (!first || wasLocked) {

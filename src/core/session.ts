@@ -111,6 +111,11 @@ export interface CaseSettings {
   claudeSetup: ClaudeSetup;
   llm: LlmSettings | null;
   nerEnabled: boolean;
+  /**
+   * When the user answered the name finder question (ADR 26). Unset: not asked yet, so the app
+   * asks the next time the case is opened (unless the name finder is already on).
+   */
+  nameFinderAsked?: string;
   nextDocNumber: number;
   /** The next import batch number (`B1`, `B2`…); absent in cases made before batches. */
   nextBatchNumber?: number;

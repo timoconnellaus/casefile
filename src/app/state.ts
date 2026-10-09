@@ -40,6 +40,11 @@ export interface AppStateOptions {
   configDir: string;
   /** Builds the optional detectors (NER, LLM) from a case's settings. */
   detectorFactory?: (settings: CaseSettings) => Promise<Detector[]> | Detector[];
+  /**
+   * Downloads (the first time) and loads the name finder the settings choose, so turning it on
+   * reports there and then whether it works (ADR 26). Absent: nothing is loaded ahead.
+   */
+  nameFinderLoader?: (settings: CaseSettings) => Promise<void>;
   /** Classifies the configured LLM endpoint as local or remote. */
   llmChecker?: (settings: CaseSettings) => Promise<LlmCheck>;
   /** How "Tidy up who's who" reaches the language model (tests pass a stub) (ADR 25). */
@@ -583,6 +588,12 @@ export class AppState {
     this.session.detectors = this.opts.detectorFactory
       ? await this.opts.detectorFactory(this.session.settings)
       : [];
+  }
+
+  /** Get the name finder ready (download it the first time); throws if it can't be (ADR 26). */
+  async prepareNameFinder(): Promise<void> {
+    if (!this.session) throw new HttpError(423, "The case is locked");
+    await this.opts.nameFinderLoader?.(this.session.settings);
   }
 
   #judge: { key: string; judge: Judge | null } | null = null;

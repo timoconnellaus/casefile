@@ -123,3 +123,8 @@ exports stopped warning: fail-open. Two changes:
 ADR 26 adds `.docx` export (the `docx` package in a worker with no permissions) next to RTF, for
 drafts and the chronology, with the same gates, safety check and logging. "`.docx` and PDF remain
 deferred" above now holds for PDF only.
+
+## Note (2026-10-09): earlier affidavits
+
+ADR 27 builds "my affidavit sworn [date], para 4" for the user's earlier affidavits (between an
+annexure mark and "Title, line N"); "is not built" above no longer holds.

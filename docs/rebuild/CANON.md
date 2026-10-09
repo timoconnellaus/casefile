@@ -62,3 +62,6 @@ D004 "School records, 2024" · D005, D007 subpoena/court material · D008 "Danie
 
 ## Addendum: the user's own statement (wave 3)
 The user is the **mother** (Settings: "Your role in the case"). D002 is her own statement: its author is recorded in the app as `mother` (vault only; Claude cannot set it), so chronology entries citing only D002 carry "Only source is your own statement". The D006 exposure was triggered by the nickname "Annie" (shown to the user as "a nickname you added: Annie"); D015 and D016 show "New match: a nickname you added: Annie".
+
+## Addendum: D002 as an earlier affidavit (ADR 27)
+The user recorded on D002's page that she swore it on **2 April 2025** (the day it was filed). Exports of her affidavit draft and of the chronology cite D002:9 as "my affidavit sworn 2 April 2025, para 4".

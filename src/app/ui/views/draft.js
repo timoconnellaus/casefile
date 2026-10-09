@@ -1524,7 +1524,7 @@ export default async function view(main, params, ctx) {
         {},
         "Line references like ",
         h("span", { class: "mono" }, "D002:9"),
-        " mean nothing to the Court. On export they become the document’s title and line, or its annexure mark (such as “annexure AT-1”) if you gave it one.",
+        " mean nothing to the Court. On export they become the document’s title and line, or its annexure mark (such as “annexure AT-1”) if you gave it one. A citation of your own earlier affidavit becomes “my affidavit sworn [date], para 4” once you record on that document’s page when you swore or affirmed it.",
       ),
       first
         ? h(

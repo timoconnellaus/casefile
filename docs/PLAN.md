@@ -68,6 +68,7 @@ The original milestones (1–6) built the core and a first app; the v2 rebuild (
 - **Case setup**: recovery key, idle lock 15/30/60 minutes, Claude Code folder checks and restore, "Open Terminal here", PD-AI 5.4 confirmations, Getting started checklist (ADR 4, ADR 13, ADR 17).
 - **CLI**: logs the lines and hits it returns, paragraph `--source` / `--relies`, plain withheld reasons, removed items hidden, guide rules against writing the witness's feelings (ADR 16).
 - **Export** (wave 3): RTF for Word (affidavit with heading, numbered paragraphs and jurat; chronology table, checked only or all with unchecked marked), vault-only annexure marks, a provenance report per draft, and a safety confirmation before an export includes a protected address (ADR 21).
+- **Citations of earlier affidavits**: on a document's page the user records that it is an affidavit they swore or affirmed, and when (vault only). On export, a citation of it becomes "my affidavit sworn 2 April 2025, para 4" when "Who wrote it" is the export's speaker (the affidavit's deponent, else the user); the paragraph number comes from the vault original. An annexure mark wins; otherwise "Title, line N" as before (ADR 27).
 - **Word (.docx) export**: drafts and the chronology as `.docx` with the reviewed, exactly pinned `docx` package (9.7.2), run in a Web Worker with no permissions; the same layout, gates, safety check (on the file read back as Word shows it) and counts-only logging as RTF, which stays available. No PDF export: open the `.docx` in Word and Save as PDF (ADR 26).
 - **Extra checks** (ADR 14): a `Judge` interface with three backends (a pinned NLI model on this computer, the language model under Finding names, Jev by TypeSafe), asked on request about chronology entries, evidence, draft paragraphs and shared documents; flags only, counts-only logging, Jev off by default and listed in the Court summary when used; thresholds calibrated on a synthetic labelled set (`deno task judge-eval`).
 - **Seed**: `deno task seed` builds the synthetic CANON case (312 or 40 documents) through the real flows.
@@ -88,7 +89,6 @@ These are deliberate (REBUILD-PLAN section 3). The UI says so honestly rather th
 | Encrypted single-file backup and restore | The restore path is the risky part and needs its own ADR and tests | Getting started lists backup as not available yet; copy the whole case folder while casefile is closed. The recovery key **is** built |
 | Judgement checks beyond the three built (direct quote, law to check), a quasi-identifier pass | Not built | Extra checks ask three questions (ADR 14 amendment) |
 | Light theme | Contrast is specified and tested for dark only | Dark only (ADR 20) |
-| "My affidavit sworn [date], para 4" citations | Not built in W3-1 | Citations of unmarked documents become "Title, line N" |
 | Hearings and deadlines, draft versions, a hide-now key | Out of the design's scope | Nothing shown |
 
 ## Known limitations and remaining risks

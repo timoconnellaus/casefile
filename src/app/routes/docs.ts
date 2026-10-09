@@ -3,6 +3,7 @@
 import { decodeBase64 } from "@std/encoding/base64";
 import { parseOrigin } from "../../core/publicdb.ts";
 import { extractPdfText, MAX_PDF_BYTES, PdfError } from "../../core/pdf.ts";
+import { getEarlierAffidavit, setEarlierAffidavit } from "../../core/export/affidavits.ts";
 import {
   type CaseSession,
   LeakError,
@@ -283,6 +284,13 @@ export function docsRoutes({ s, show, plain, notes, guardedSave }: RouteContext)
       await setDocAuthor(s(), params.id, role);
       return { ok: true, author: await docAuthor(s(), params.id) };
     }),
+    // An affidavit the user swore or affirmed earlier, and when (ADR 0027): vault only. On export
+    // a citation of it becomes "my affidavit sworn 2 April 2025, para 4".
+    route("PUT", "/api/docs/:id/affidavit", async ({ params, body }) => {
+      const b = await body();
+      const input = b.affidavit === null ? null : { oath: b.oath, date: b.date };
+      return { ok: true, affidavit: await setEarlierAffidavit(s(), params.id, input) };
+    }),
     route("DELETE", "/api/docs/:id", async ({ params }) => {
       await s().deleteDoc(params.id);
       return { ok: true };
@@ -308,6 +316,8 @@ export function docsRoutes({ s, show, plain, notes, guardedSave }: RouteContext)
         originHint: doc.originHint ?? null,
         // Who wrote it, as the user recorded it (vault). Not public.db's author_role.
         author: await docAuthor(s(), doc.id),
+        // Sworn or affirmed earlier, as the user recorded it (vault, ADR 0027).
+        affidavit: await getEarlierAffidavit(s(), doc.id),
         file: doc.file ?? null,
         citedIn,
         activity,

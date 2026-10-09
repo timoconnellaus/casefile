@@ -83,6 +83,11 @@ Deno.test({
 
     // D002 is the user's own statement (vault-side author), and the user is the mother.
     assertEquals((await t.user.get("/api/docs/D002")).json.author, "mother");
+    // …sworn on 2 April 2025, so exports cite it as "my affidavit sworn …" (ADR 27).
+    assertEquals((await t.user.get("/api/docs/D002")).json.affidavit, {
+      oath: "sworn",
+      date: "2025-04-02",
+    });
     assertEquals((await t.user.get("/api/settings")).json.userRole, "mother");
     // D006 was exposed by the nickname "Annie"; D015 and D016 show it as a new match.
     const ex = (await t.user.get("/api/exposures")).json;

@@ -9,6 +9,7 @@ import {
 import { type DraftKind, InvalidInputError } from "../publicdb.ts";
 import type { CaseSession } from "../session.ts";
 import type { ParaState } from "../states.ts";
+import { exportSpeaker } from "./affidavits.ts";
 import { convertCitationsWith, getAnnexureMarks } from "./annexures.ts";
 import type { ExportBlock } from "./blocks.ts";
 import { DOCX_TYPE, docxDocument, docxToText } from "./docx.ts";
@@ -27,7 +28,8 @@ import { protectedAddressesIn, SafetyConfirmError, unescapeMarkdown } from "./sa
  *
  * Affidavits get the heading from the vault, numbered paragraphs, a jurat and
  * "[check against the Court's current form]" markers. Citations become "annexure AT-1" for a
- * document the user marked, otherwise "Title, line N".
+ * document the user marked, "my affidavit sworn 2 April 2025, para 4" for the deponent's earlier
+ * affidavit (ADR 0027), otherwise "Title, line N".
  */
 
 export type DraftExportFormat = "markdown" | "text" | "rtf" | "docx";
@@ -215,11 +217,15 @@ export async function exportDraftFile(
 
   const marks = await getAnnexureMarks(session, draftId);
   const title = session.reidentify(session.store.getDraft(draftId).title).text;
-  const bodies = await Promise.all(
-    ov.info.map((p) => convertCitationsWith(session, session.reidentify(p.para.body).text, marks)),
-  );
   const affidavit = check.kind === "affidavit";
   const heading = affidavit ? (await getDraftHeading(session, draftId)) ?? EMPTY_HEADING : null;
+  // "My affidavit sworn …" means the deponent's in an affidavit, the user's otherwise (ADR 0027).
+  const speaker = exportSpeaker(session, heading?.deponent);
+  const bodies = await Promise.all(
+    ov.info.map((p) =>
+      convertCitationsWith(session, session.reidentify(p.para.body).text, marks, { speaker })
+    ),
+  );
   const parts = heading ? affidavitParts(session, heading) : null;
 
   const word = format === "rtf" || format === "docx" ? wordBlocks(title, bodies, parts) : null;

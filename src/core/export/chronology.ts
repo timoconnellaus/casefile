@@ -3,6 +3,7 @@ import { InvalidInputError } from "../publicdb.ts";
 import type { CaseSession } from "../session.ts";
 import type { WorkState } from "../states.ts";
 import { formatDate } from "../summary.ts";
+import { exportSpeaker } from "./affidavits.ts";
 import { convertCitationsWith, describeSource } from "./annexures.ts";
 import { type BinaryExportFile, type ExportFile, localDate } from "./draft.ts";
 import type { ExportBlock } from "./blocks.ts";
@@ -16,7 +17,8 @@ import { protectedAddressesIn, SafetyConfirmError } from "./safety.ts";
  * checked comes from the attestation ledger (`chronologyState`), never public.db's
  * `verified_at`; entries the user removed (the ledger's record) are left out, and Claude-removed
  * rows are not trusted to be gone. Citations become plain descriptions ("Text messages, March
- * 2025, line 3"). Logged with counts only.
+ * 2025, line 3", or "my affidavit sworn 2 April 2025, para 4" for the user's earlier affidavit,
+ * ADR 0027). Logged with counts only.
  */
 
 export type ChronologyScope = "checked" | "all";
@@ -43,6 +45,8 @@ export async function exportChronology(
     throw new InvalidInputError(`Bad export format; one of ${CHRONOLOGY_FORMATS.join(", ")}`);
   }
   const removed = await userRemoved(session);
+  // The chronology is the user's: "my affidavit sworn …" is theirs (ADR 0027).
+  const speaker = exportSpeaker(session);
   const rows: { date: string; what: string; source: string; added: string; state: WorkState }[] =
     [];
   let total = 0;
@@ -53,8 +57,15 @@ export async function exportChronology(
     total++;
     const state = (await chronologyState(session, r)).state;
     if (scope === "checked" && state !== "checked") continue;
-    const what = await convertCitationsWith(session, session.reidentify(r.description).text, {});
-    const sources = await Promise.all(r.sources.map((s) => describeSource(session, s)));
+    const what = await convertCitationsWith(
+      session,
+      session.reidentify(r.description).text,
+      {},
+      { speaker },
+    );
+    const sources = await Promise.all(
+      r.sources.map((s) => describeSource(session, s, {}, { speaker })),
+    );
     rows.push({
       date: formatDate(r.event_date),
       what,

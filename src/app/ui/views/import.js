@@ -1,5 +1,6 @@
 // Import (W2-2; the import section of wb/Documents.dc.html): drop files or a folder, choose files,
-// or paste text. Each file is checked for names on this computer, one at a time, with progress.
+// or paste text. PDFs are sent as base64 to `/api/docs/import-pdf`, which reads their text and
+// keeps the file in the vault (ADR 23). Each file is checked for names on this computer, one at a time, with progress.
 // The files of one import share a batch (the first response's `batch`), so "Review" opens the
 // review queue for just these documents (`#/review/D015?queue=B3`).
 // Rendered inside the Documents list (no route of its own; its styles are in documents.css).
@@ -8,15 +9,16 @@ import { api } from "../lib.js";
 import { announce, Button, Field, openDialog } from "../components/index.js";
 
 const TEXT_EXT = /\.(txt|text|md|markdown)$/i;
+const PDF_EXT = /\.pdf$/i;
 const LATER = [
-  { re: /\.pdf$/i, what: "PDF" },
   { re: /\.(eml|msg|mbox)$/i, what: "Email" },
   { re: /\.(png|jpe?g|heic|gif|webp|tiff?)$/i, what: "Photo" },
   { re: /\.(docx?|rtf|odt|pages)$/i, what: "Word" },
 ];
 
-/** Whether a file can be imported now, or what kind of "not yet" file it is. */
+/** Whether a file can be imported now (and whether it is a PDF), or what kind of "not yet" file it is. */
 export function classifyFile(file) {
+  if (PDF_EXT.test(file.name) || file.type === "application/pdf") return { ok: true, pdf: true };
   if (TEXT_EXT.test(file.name) || file.type === "text/plain" || file.type === "text/markdown") {
     return { ok: true };
   }
@@ -57,6 +59,21 @@ async function filesFromDrop(dt) {
   return [...(dt.files ?? [])];
 }
 
+/** A file's bytes as base64. */
+function base64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result).slice(String(r.result).indexOf(",") + 1));
+    r.onerror = () => reject(r.error ?? new Error("Couldn’t read the file"));
+    r.readAsDataURL(file);
+  });
+}
+
+/** "page 3", "pages 3 and 4", "pages 2, 5 and 7" */
+function pageList(pages) {
+  return `${pages.length === 1 ? "page" : "pages"} ${list(pages.map(String))}`;
+}
+
 /** "D015 and D016", "D015, D016 and D017" */
 function list(ids) {
   return ids.length <= 1 ? ids.join("") : `${ids.slice(0, -1).join(", ")} and ${ids.at(-1)}`;
@@ -87,6 +104,8 @@ export function ImportPanel(opts) {
     const done = [];
     const skipped = [];
     const failed = [];
+    // PDFs with pages casefile couldn't read (no text: probably scanned).
+    const partial = [];
     const ok = items.filter((it) => it.text !== undefined || classifyFile(it.file).ok);
     for (const it of items) {
       if (it.file && !classifyFile(it.file).ok) skipped.push(it.file.name);
@@ -103,12 +122,19 @@ export function ImportPanel(opts) {
         h("span", { class: "mono" }, name),
       );
       try {
-        const text = it.text ?? await it.file.text();
-        const r = await api("POST", "/api/docs/import", {
-          title: it.title ?? titleFromName(it.file.name),
-          text,
-          ...(batch ? { batch } : {}),
-        });
+        const title = it.title ?? titleFromName(it.file.name);
+        const r = it.file && classifyFile(it.file).pdf
+          ? await api("POST", "/api/docs/import-pdf", {
+            title,
+            pdf: await base64(it.file),
+            ...(batch ? { batch } : {}),
+          })
+          : await api("POST", "/api/docs/import", {
+            title,
+            text: it.text ?? await it.file.text(),
+            ...(batch ? { batch } : {}),
+          });
+        if (r.emptyPages?.length) partial.push(`${r.id} (${pageList(r.emptyPages)})`);
         batch ??= r.batch ?? null;
         done.push(r.id);
         last = { name, id: r.id };
@@ -149,8 +175,17 @@ export function ImportPanel(opts) {
         ? h(
           "p",
           {},
-          `Not added (only .txt and .md files can be added for now): ${skipped.join(", ")}. `,
-          "For a PDF or email, open it, select all the text, copy it and use Paste text.",
+          `Not added (only .txt, .md and PDF files can be added for now): ${skipped.join(", ")}. `,
+          "For an email, open it, select all the text, copy it and use Paste text.",
+        )
+        : null,
+      partial.length
+        ? h(
+          "p",
+          {},
+          `Some PDF pages had no text casefile could read, probably because they are scans, so nothing on them was added: ${
+            partial.join("; ")
+          }. If those pages matter, copy their text and use Paste text.`,
         )
         : null,
       failed.length ? h("p", { class: "danger-text" }, `Couldn’t add: ${failed.join("; ")}`) : null,
@@ -168,7 +203,7 @@ export function ImportPanel(opts) {
   const fileInput = h("input", {
     type: "file",
     multiple: true,
-    accept: ".txt,.md,.markdown,.text,text/plain,text/markdown",
+    accept: ".txt,.md,.markdown,.text,.pdf,text/plain,text/markdown,application/pdf",
     class: "sr",
     tabindex: "-1",
     "aria-hidden": "true",
@@ -231,7 +266,7 @@ export function ImportPanel(opts) {
     h(
       "div",
       { class: "vstack gap-sm grow" },
-      h("p", { class: "imp-drop-title" }, "Drop .txt or .md files, or a folder, here"),
+      h("p", { class: "imp-drop-title" }, "Drop PDF, .txt or .md files, or a folder, here"),
       h(
         "p",
         { class: "muted" },
@@ -261,16 +296,16 @@ export function ImportPanel(opts) {
       "div",
       { class: "imp-later" },
       h("span", { class: "muted" }, "Not yet:"),
-      h("span", { class: "tag" }, "PDF · coming soon"),
+      h("span", { class: "tag" }, "Scanned PDFs · coming soon"),
       h("span", { class: "tag" }, "Email (.eml, .msg) · coming soon"),
       h("span", { class: "tag" }, "Photos & screenshots · coming soon"),
     ),
     h(
       "p",
       { class: "imp-guide" },
-      "Have a PDF or email now? Open it, select all the text, copy it and use ",
+      "casefile keeps each PDF you add, encrypted, with the case. For an email, open it, select all the text, copy it and use ",
       h("strong", {}, "Paste text"),
-      ". Keep the original file somewhere safe outside the case folder; you’ll need it if it becomes an annexure.",
+      ", and keep the original somewhere safe outside the case folder; you’ll need it if it becomes an annexure.",
     ),
     status,
   );

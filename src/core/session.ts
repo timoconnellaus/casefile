@@ -25,6 +25,7 @@ import {
   StoreReplacedError,
   type WithheldReason,
 } from "./publicdb.ts";
+import { extractPdfText, type PdfFileInfo } from "./pdf.ts";
 import { Signer } from "./signing.ts";
 import { applyTokens, findLeaks, knownMatches, type Leak, tokeniseKnown } from "./tokenise.ts";
 import {
@@ -182,6 +183,25 @@ export interface StoredDoc {
    * shared documents were withdrawn by the same change. Cleared when it is published.
    */
   newMatch?: { foundAt: string; values: ExposureTrigger[]; exposed: string[] } | null;
+  /**
+   * The file it was imported from, when that file is kept in the vault (`originalName`, ADR 23).
+   * `original` is the text read from it.
+   */
+  file?: PdfFileInfo;
+}
+
+/** What `importText` takes (and `importPdf`, with the PDF's bytes instead of `text`). */
+export interface ImportInput {
+  title: string;
+  text: string;
+  source?: string;
+  /**
+   * Where it came from. Defaults to null, "not asked yet", which is withheld from Claude until
+   * the user answers (ADR 7).
+   */
+  origin?: Origin | null;
+  /** The import batch it belongs to (from `newBatch`), for the review queue. */
+  batch?: string;
 }
 
 /** Details of a document kept in the vault while it is withheld (`StoredDoc.heldDetails`). */
@@ -952,6 +972,22 @@ export class CaseSession {
   }
 
   /**
+   * The vault file name of the file document `id` was imported from (ADR 23). Not `doc-…`,
+   * because documents are listed by that prefix.
+   */
+  originalName(id: string) {
+    return `original-${id.toLowerCase()}`;
+  }
+
+  /** The file document `id` was imported from, or null if it was imported as text. */
+  async readOriginal(id: string): Promise<{ bytes: Uint8Array; file: PdfFileInfo } | null> {
+    const doc = await this.getDoc(id);
+    if (!doc.file) return null;
+    const bytes = await this.vault.read(this.originalName(doc.id));
+    return bytes ? { bytes, file: doc.file } : null;
+  }
+
+  /**
    * Decrypted documents, by id. Only the app writes the vault, but a read can overlap a write:
    * each write bumps the document's generation, and a read only fills the cache if no write
    * happened while it was reading (otherwise it would put the old version back).
@@ -1222,19 +1258,22 @@ export class CaseSession {
   }
 
   /** Store an original and run detection on it. Nothing reaches the public store yet. */
+  /**
+   * Import a PDF (ADR 23): its text layer is read in a worker with no permissions and imported
+   * like any text; the PDF itself is kept, encrypted, as `originalName(id)`. Throws `PdfError`.
+   */
+  async importPdf(
+    input: Omit<ImportInput, "text"> & { bytes: Uint8Array },
+  ): Promise<StoredDoc> {
+    const { bytes, ...rest } = input;
+    const { text, info } = await extractPdfText(bytes);
+    return await this.importText({ ...rest, text }, { bytes, info });
+  }
+
   async importText(
-    input: {
-      title: string;
-      text: string;
-      source?: string;
-      /**
-       * Where it came from. Defaults to null, "not asked yet", which is withheld from Claude until
-       * the user answers (ADR 7).
-       */
-      origin?: Origin | null;
-      /** The import batch it belongs to (from `newBatch`), for the review queue. */
-      batch?: string;
-    },
+    input: ImportInput,
+    /** The file the text was read from, kept in the vault (`importPdf`). */
+    original?: { bytes: Uint8Array; info: PdfFileInfo },
   ): Promise<StoredDoc> {
     const text = input.text.replace(/\r\n?/g, "\n");
     if (!text.trim()) throw new InvalidInputError("Document is empty");
@@ -1263,13 +1302,22 @@ export class CaseSession {
       ignore: [],
       originHint: originHints(text),
       ...(input.batch !== undefined ? { batch: input.batch } : {}),
+      ...(original ? { file: original.info } : {}),
     };
-    await this.saveDoc(doc);
+    // The original first, so a saved document always has its file; removed if the save fails.
+    if (original) await this.vault.write(this.originalName(id), original.bytes);
+    try {
+      await this.saveDoc(doc);
+    } catch (e) {
+      if (original) await this.vault.delete(this.originalName(id)).catch(() => {});
+      throw e;
+    }
     this.store.log("app", "document_imported", {
       doc: id,
       detections: result.spans.length,
       detectors: ["rules", "known", ...this.detectors.map((d) => d.name)],
       detector_errors: result.errors.map((e) => e.detector),
+      ...(original ? { format: original.info.type, pages: original.info.pages } : {}),
     });
     return doc;
   }
@@ -1951,6 +1999,7 @@ export class CaseSession {
     this.store.unpublishDocument(id);
     this.bumpDoc(id);
     await this.vault.delete(this.docName(id));
+    await this.vault.delete(this.originalName(id));
     this.bumpDoc(id);
     this.store.log("user", "document_deleted", { doc: id });
   }

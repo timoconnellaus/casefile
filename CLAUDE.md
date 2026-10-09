@@ -7,8 +7,8 @@ Read `docs/PLAN.md`, `CONTEXT.md` and `docs/adr/` before changing behaviour.
 
 - **Never open, paste or commit real case documents.** Use `tests/fixtures/synthetic.ts` (ADR 11).
 - **The CLI (`src/cli/`) must not import** `vault.ts`, `session.ts`, `signing.ts`, `entities.ts`,
-  `tokenise.ts`, `drafting.ts`, `detect/` or `src/app/`. `tests/boundary_test.ts` enforces this (ADR
-  3).
+  `tokenise.ts`, `drafting.ts`, `pdf.ts`, `detect/` or `src/app/`. `tests/boundary_test.ts` enforces
+  this (ADR 3).
 - Anything that should be hidden from Claude must not be written to `public.db` at all (ADR 3, 7).
 - Every write of document text to public.db goes through `CaseSession.publishedView` (via
   `publish`/`republish`), which runs the leak check (ADR 6).

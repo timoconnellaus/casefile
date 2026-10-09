@@ -75,6 +75,15 @@
   border-bottom: 1px solid var(--line);
 }
 
+.rv-file:empty {
+  display: none;
+}
+
+.rv-file {
+  padding: 0 var(--sp-5);
+  border-bottom: 1px solid var(--line);
+}
+
 .rv-title:focus {
   outline: none;
 }

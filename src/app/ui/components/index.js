@@ -46,3 +46,4 @@ export { EXTERNAL_LINKS, ExternalLink } from "./links.js";
 export { confirmDialog, openDialog, restoreFocus } from "./dialog.js";
 export { focusMemo } from "./focus.js";
 export { DataTable } from "./table.js";
+export { OriginalFile } from "./original.js";

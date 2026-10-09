@@ -19,6 +19,7 @@ import {
   LinesTable,
   linkEntities,
   openDialog,
+  OriginalFile,
   Segmented,
   showToast,
   Tag,
@@ -442,7 +443,9 @@ export default async function view(main, params, ctx) {
     key,
     h("div", { class: "columns doc-columns" }, mainCol, side),
   );
-  main.replaceChildren(head, confirmSlot, callouts, body, live);
+  main.replaceChildren(
+    ...[head, OriginalFile(doc.id, doc.file), confirmSlot, callouts, body, live].filter(Boolean),
+  );
   linkEntities(body);
 
   if (focusLine) main.querySelector(`#line-${focusLine}`)?.scrollIntoView({ block: "center" });

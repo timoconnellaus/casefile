@@ -96,3 +96,40 @@ spans are unaffected. `splitPersonName` reads "SURNAME, Given names" the right w
   not in who's who yet, so "Tidy up" does not see them until it is published.
 - The language model sees real names and a few lines of each document, as the LLM name pass
   already does; a user who uses NER only gets the rules' suggestions.
+
+## Amendment: suggestions while a document is reviewed, with the whole document (2026-10-09)
+
+The point of using the local model was that it can read the real names and the whole document
+before anything reaches Claude. "Tidy up" in People runs only after sharing, with three lines per
+entry. So the review screen gets **Suggested fixes** (`POST /api/docs/:id/tidy`,
+`suggestForReview` in `people.ts`, `reviewSuggestions` in `detect/tidy.ts`):
+
+- For each new finding in the document: **same** (it is an entry already in who's who, or another
+  new finding, written differently), **label** (what Claude should call it), or **leave** (it
+  identifies no one). Rules always run (a name written in another order or with a middle name,
+  the same text found as two kinds, a harmless shape); the language model under Finding names,
+  when set up, reads the **whole original document** in 6,000-character chunks with who's who
+  (labels, kinds, real values, descriptions) and the findings. ADR 12's rules apply unchanged:
+  classified before every request, refused for a remote or unconfirmed endpoint unless allowed.
+- Checks: items and targets must exist; "same" only between compatible kinds (person with
+  person; places, organisations, schools and "other" together; a number with the same kind);
+  labels through `sanitiseRole` and `revealingWords` (including the findings' own values), valid
+  and free; "leave" never for a person, address, phone, email, identifier or date of birth, nor
+  for a value that contains a known value or that a rule always replaces. Chains are followed
+  ("Dan" → "Daniel Okafor" → `father`), cycles dropped, one suggestion per finding.
+- **Matching a role instead of a name.** Tried on a synthetic case, the model said a new
+  respondent with a different name was the existing `father` (and then the father's partner),
+  because both are "the respondent". So a model "same" from a new person to someone already in
+  who's who is **dropped** unless their names share a word or one starts the other ("Dan",
+  "Daniel"); the user can still choose that person by hand. Between two new findings it is kept
+  but marked `caution` ("The names differ…"), and **Use all** never applies a doubtful one; any
+  doubtful link makes a whole chain doubtful.
+- Nothing is saved by asking. "Use" pre-fills the review screen's own decisions, which the user
+  can still change, and the document is shared through the normal publish and leak check.
+- **Remembering a spelling.** A publish request may carry `aliases: [{ref, value}]`. The review
+  screen sends one for each finding a "same" suggestion was used for; publish adds the value as
+  another name of that entry if this request replaces that very text with it and no entry already
+  has it as a value. So the next document that writes "OKAFOR, Daniel" finds the father at once.
+- The review screen also lets the user edit a new entry's label before sharing ("What Claude calls
+  this new entry"), checked again by publish (a revealing label still falls back to `kind_N`).
+- The log gets `review_suggestions {doc, suggestions, llm}`: counts only.

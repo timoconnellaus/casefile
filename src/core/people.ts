@@ -20,12 +20,17 @@ import { findKnownSpans } from "./detect/pipeline.ts";
 import {
   checkSuggestions,
   llmSuggestions,
+  type ReviewEntry,
+  type ReviewItem,
+  type ReviewSuggestion,
+  reviewSuggestions,
   ruleSuggestions,
   settle,
   type TidyEntry,
   type TidyOptions,
   type TidyResult,
 } from "./detect/tidy.ts";
+import { findRuleSpans } from "./detect/rules.ts";
 import { foldValue } from "./fold.ts";
 import { InvalidInputError, NotFoundError } from "./publicdb.ts";
 import type { CaseSession, StoredDoc } from "./session.ts";
@@ -199,6 +204,62 @@ export async function suggestTidy(
     llm: result.llm.ran,
   });
   return result;
+}
+
+/**
+ * Suggestions for a document still under review (ADR 25 amendment): for each new finding, whether
+ * it is someone already listed or another finding written differently, what to call it, or that
+ * it identifies no one. The language model reads the whole original document. Nothing changes
+ * until the user accepts a suggestion on the review screen and shares the document.
+ */
+export async function suggestForReview(
+  s: CaseSession,
+  docId: string,
+  opts: TidyOptions & { useLlm?: boolean } = {},
+): Promise<{ suggestions: ReviewSuggestion[]; llm: { ran: boolean; error?: string } }> {
+  const doc = await s.getDoc(docId);
+  if (doc.status === "published") {
+    throw new InvalidInputError("This document is already shared. Use Tidy up in People instead.");
+  }
+  const used = new Set<string>();
+  for (const p of doc.proposals) {
+    if (p.proposal.type === "new") used.add(p.proposal.key);
+    if (p.proposal.type === "ambiguous") {
+      for (const o of p.proposal.options) if (o.isNew) used.add(o.ref);
+    }
+  }
+  const items: ReviewItem[] = doc.newEntities.filter((n) => used.has(n.key)).map((n, i) => ({
+    id: `n${i + 1}`,
+    key: n.key,
+    kind: n.kind,
+    value: n.full,
+    label: n.roleHint ?? "",
+  }));
+  const known: ReviewEntry[] = s.registry.list().map((e) => ({
+    role: e.role,
+    kind: e.kind,
+    values: [e.forms.full, e.forms.first, e.forms.surname, e.forms.title, ...e.aliases]
+      .filter((v): v is string => !!v),
+    description: e.description ? s.reidentify(e.description).text : null,
+  }));
+  // A value that hides someone else's, or that a rule always replaces, is never "left as written".
+  const knownIn = (v: string) =>
+    findKnownSpans(v, s.registry, { leak: true }).length > 0 || findRuleSpans(v).length > 0;
+  const r = await reviewSuggestions(
+    s.settings.llm,
+    doc.original,
+    items,
+    known,
+    s.registry,
+    knownIn,
+    opts,
+  );
+  s.store.log("app", "review_suggestions", {
+    doc: doc.id,
+    suggestions: r.suggestions.length,
+    llm: r.llm.ran,
+  });
+  return r;
 }
 
 function getEntity(s: CaseSession, role: string): Entity {

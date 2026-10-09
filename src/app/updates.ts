@@ -1,20 +1,35 @@
 /**
  * Desktop updates from signed GitHub releases (ADR 24).
  *
- * `Deno.autoUpdate` (deno desktop's runtime) fetches `latest.json` from the latest release once
- * at start and then hourly. The manifest must be signed with the Ed25519 key in update_config.ts;
- * the patch it names must match its SHA-256. A good patch is staged next to the app's runtime and
- * applied by the launcher at the next launch, which rolls back by itself if that launch fails.
- * Nothing is sent but the requests for those files: no case data, no identifiers.
+ * casefile checks the latest release once soon after it starts, then hourly, and whenever the user
+ * asks (Settings → casefile updates). Each check fetches `latest.json`, which must be signed with
+ * the Ed25519 key in update_config.ts, and, if there is a newer version, the patch it names, which
+ * must match the manifest's SHA-256. Nothing is sent but the requests for those files: no case
+ * data, no identifiers.
+ *
+ * Deno 2.9.7's `Deno.autoUpdate` fetches with `redirect: "error"`, and every GitHub release
+ * download redirects twice (to the tagged release, then to a signed URL on the asset host), so it
+ * can't download from GitHub itself (issue #5). casefile does the downloading: it follows the
+ * redirects over HTTPS, checks the signature and the hash, and then hands the exact bytes it
+ * checked to `Deno.autoUpdate`, which checks the signature and the hash again and stages the
+ * patch next to the app's runtime. The launcher applies it at the next launch and rolls back by
+ * itself if that launch fails.
  *
  * The app shows "Update ready" once a patch is staged. Restarting closes the case (its writes
  * finish, its lock is released) and opens a new instance of the bundle; the user unlocks the case
  * again, and the new version backs it up before it opens it (AppState.openCase).
  */
+import { decodeBase64 } from "@std/encoding/base64";
+import { encodeHex } from "@std/encoding/hex";
 import { dirname, join } from "@std/path";
 import { UPDATE_PUBLIC_KEY, UPDATE_REPO, updateBaseUrl } from "./update_config.ts";
 
 const HOUR_MS = 60 * 60 * 1000;
+/** The first check, a little after start so it doesn't compete with opening the window. */
+const FIRST_CHECK_MS = 5_000;
+/** How long `Deno.autoUpdate` may take to stage a patch it has been handed (it starts after 1s). */
+const STAGE_TIMEOUT_MS = 30_000;
+const MAX_REDIRECTS = 5;
 
 export interface UpdateStatus {
   /** Updates are configured and this is a desktop build. */
@@ -23,38 +38,283 @@ export interface UpdateStatus {
   ready: string | null;
   /** The last update failed to start and the runtime went back to this version. */
   rolledBack: boolean;
+  /** A check is running now. */
+  checking: boolean;
+  /** When the last check finished (ISO time), or null if none has. */
+  lastCheck: string | null;
+  /** Why the last check failed, or null if it worked. Never holds case data. */
+  lastError: string | null;
 }
 
+/** `Deno.autoUpdate` as casefile calls it. */
+export type AutoUpdate = (opts: {
+  url: string;
+  publicKey: string;
+  interval?: number;
+  onUpdateReady?: (version: string) => void;
+  onRollback?: (reason: string) => void;
+}) => void;
+
+export interface UpdatesOptions {
+  /** Where `latest.json` and the patches are (default: the env override or GitHub). */
+  url?: string;
+  /** The manifest's public key (default: update_config.ts). */
+  publicKey?: string;
+  /** Default: `Deno.autoUpdate`, which only a `deno desktop` build has. */
+  autoUpdate?: AutoUpdate;
+  /** For the downloads (default: the global fetch). */
+  fetch?: typeof fetch;
+  /** How long staging may take (tests shorten it). */
+  stageTimeoutMs?: number;
+}
+
+interface Manifest {
+  version: string;
+  patches?: Record<string, { name?: unknown; sha256?: unknown } | undefined>;
+}
+
+/** A check that failed, with a sentence for the user. */
+class UpdateError extends Error {}
+
 export class Updates {
-  #status: UpdateStatus = { enabled: false, ready: null, rolledBack: false };
+  #status: UpdateStatus = {
+    enabled: false,
+    ready: null,
+    rolledBack: false,
+    checking: false,
+    lastCheck: null,
+    lastError: null,
+  };
+  #opts: UpdatesOptions;
+  #version: string | null = null;
+  #base = "";
+  #publicKey = "";
+  #autoUpdate: AutoUpdate | null = null;
+  #running: Promise<UpdateStatus> | null = null;
+  #timers: ReturnType<typeof setTimeout>[] = [];
+
+  constructor(opts: UpdatesOptions = {}) {
+    this.#opts = opts;
+  }
 
   get status(): UpdateStatus {
     return { ...this.#status };
   }
 
-  /** Start checking (a desktop build with updates configured only). */
-  start(version: string | null): void {
+  /**
+   * Start checking (a desktop build with updates configured only): once soon, then hourly.
+   * Pass `{ timers: false }` to only make `check()` available.
+   */
+  start(version: string | null, { timers = true }: { timers?: boolean } = {}): void {
     // deno-lint-ignore no-explicit-any
-    const autoUpdate = (Deno as any).autoUpdate;
+    const autoUpdate = this.#opts.autoUpdate ?? (Deno as any).autoUpdate;
     // A test server can stand in for GitHub (docs/RELEASING.md, "Testing an update locally"):
     // the manifest must still be signed with the built-in key.
-    const url = Deno.env.get("CASEFILE_UPDATE_URL") ??
+    const url = this.#opts.url ?? Deno.env.get("CASEFILE_UPDATE_URL") ??
       (UPDATE_REPO ? updateBaseUrl(UPDATE_REPO) : null);
-    if (!version || !url || !UPDATE_PUBLIC_KEY || typeof autoUpdate !== "function") return;
+    const publicKey = this.#opts.publicKey ?? UPDATE_PUBLIC_KEY;
+    if (!version || !url || !publicKey || typeof autoUpdate !== "function") return;
+    this.#version = version;
+    this.#base = url.replace(/\/$/, "");
+    this.#publicKey = publicKey;
+    this.#autoUpdate = autoUpdate;
     this.#status.enabled = true;
-    autoUpdate({
-      url,
-      publicKey: UPDATE_PUBLIC_KEY,
-      interval: HOUR_MS,
-      onUpdateReady: (v: string) => (this.#status.ready = String(v)),
-      onRollback: () => (this.#status.rolledBack = true),
-    });
+    // Only to hear whether the last update was rolled back: with no URL it checks nothing.
+    autoUpdate({ url: "", publicKey, onRollback: () => (this.#status.rolledBack = true) });
+    if (timers) {
+      this.#timers.push(
+        setTimeout(() => this.check(), FIRST_CHECK_MS),
+        setInterval(() => this.check(), HOUR_MS),
+      );
+    }
+  }
+
+  /** Stop the background checks. */
+  stop(): void {
+    for (const t of this.#timers) clearTimeout(t);
+    this.#timers = [];
+  }
+
+  /** Check now (or join the check that is running) and return the status after it. */
+  check(): Promise<UpdateStatus> {
+    if (!this.#status.enabled) return Promise.resolve(this.status);
+    this.#running ??= this.#check().finally(() => (this.#running = null));
+    return this.#running;
+  }
+
+  async #check(): Promise<UpdateStatus> {
+    this.#status.checking = true;
+    try {
+      await this.#checkOnce();
+      this.#status.lastError = null;
+    } catch (e) {
+      this.#status.lastError = e instanceof UpdateError
+        ? e.message
+        : `The update check failed: ${withoutQueries((e as Error)?.message ?? String(e))}`;
+    } finally {
+      this.#status.checking = false;
+      this.#status.lastCheck = new Date().toISOString();
+    }
+    return this.status;
+  }
+
+  async #checkOnce(): Promise<void> {
+    const version = this.#version!;
+    const manifestUrl = `${this.#base}/latest.json`;
+    const envelopeBytes = await this.#download(manifestUrl, "the update information");
+    const manifest = await verifiedManifest(envelopeBytes, this.#publicKey);
+    if (manifest.version === version || manifest.version === this.#status.ready) return;
+    const entry = manifest.patches?.[version];
+    if (!entry) {
+      throw new UpdateError(
+        `casefile ${manifest.version} is out, but there is no update from ${version} to it. ` +
+          "Reinstall casefile with install.sh to get it.",
+      );
+    }
+    const { name, sha256 } = entry;
+    if (
+      typeof name !== "string" || !/^[\w.+-]+$/.test(name) || name.startsWith(".") ||
+      typeof sha256 !== "string" || !/^[0-9a-f]{64}$/i.test(sha256)
+    ) {
+      throw new UpdateError("The update information names a patch casefile can't use.");
+    }
+    const patchUrl = `${this.#base}/${name}`;
+    const patch = await this.#download(patchUrl, "the update");
+    if (encodeHex(await crypto.subtle.digest("SHA-256", patch)) !== sha256.toLowerCase()) {
+      throw new UpdateError("The downloaded update didn't match its checksum, so it was ignored.");
+    }
+    await this.#stage(manifest.version, { [manifestUrl]: envelopeBytes, [patchUrl]: patch });
+  }
+
+  /**
+   * Have `Deno.autoUpdate` stage the patch, serving it the bytes already checked: for the length
+   * of the call, a fetch of exactly those URLs gets those bytes, without going to the network.
+   * Every other fetch goes through unchanged.
+   */
+  async #stage(version: string, files: Record<string, Uint8Array<ArrayBuffer>>): Promise<void> {
+    const original = globalThis.fetch;
+    let staged!: (v: string) => void;
+    const ready = new Promise<string>((resolve) => (staged = resolve));
+    const served: typeof fetch = (input, init) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url in files) return Promise.resolve(new Response(files[url]));
+      if (url.startsWith(`${this.#base}/`)) {
+        return Promise.resolve(new Response(null, { status: 404 }));
+      }
+      return original(input, init);
+    };
+    globalThis.fetch = served;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      this.#autoUpdate!({
+        url: this.#base,
+        publicKey: this.#publicKey,
+        // Set here too, in case staging finishes after the wait below gives up.
+        onUpdateReady: (v) => staged(this.#status.ready = String(v)),
+        onRollback: () => (this.#status.rolledBack = true),
+      });
+      const v = await Promise.race([
+        ready,
+        new Promise<null>((resolve) => {
+          timer = setTimeout(() => resolve(null), this.#opts.stageTimeoutMs ?? STAGE_TIMEOUT_MS);
+        }),
+      ]);
+      if (v === null) {
+        throw new UpdateError(
+          `casefile ${version} downloaded and passed its checks, but it couldn't be set up to install. ` +
+            "casefile will try again.",
+        );
+      }
+      this.#status.ready = v;
+    } finally {
+      clearTimeout(timer);
+      if (globalThis.fetch === served) globalThis.fetch = original;
+    }
+  }
+
+  /** GET `url`, following redirects (at most five, HTTPS stays HTTPS), as bytes. */
+  async #download(url: string, what: string): Promise<Uint8Array<ArrayBuffer>> {
+    const get = this.#opts.fetch ?? globalThis.fetch;
+    let at = url;
+    for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
+      const host = new URL(at).host;
+      let res: Response;
+      try {
+        res = await get(at, { redirect: "manual", cache: "no-store" });
+      } catch (e) {
+        throw new UpdateError(
+          `casefile couldn't reach ${host} to check for updates: ` +
+            withoutQueries((e as Error)?.message ?? String(e)),
+        );
+      }
+      if (res.status >= 300 && res.status < 400 && res.headers.has("location")) {
+        await res.body?.cancel();
+        const next = new URL(res.headers.get("location")!, at);
+        if (new URL(at).protocol === "https:" && next.protocol !== "https:") {
+          throw new UpdateError(`${host} redirected ${what} away from HTTPS, so it was ignored.`);
+        }
+        at = next.href;
+        continue;
+      }
+      if (!res.ok) {
+        await res.body?.cancel();
+        throw new UpdateError(`${host} answered ${res.status} for ${what}.`);
+      }
+      return new Uint8Array(await res.arrayBuffer());
+    }
+    throw new UpdateError(`Downloading ${what} redirected too many times.`);
   }
 
   /** For tests: as if a patch had been staged. */
   markReady(version: string): void {
     this.#status.ready = version;
   }
+}
+
+/** The manifest in `latest.json`, if it is signed with `publicKey` (as Deno.autoUpdate checks). */
+async function verifiedManifest(bytes: Uint8Array, publicKey: string): Promise<Manifest> {
+  const unsigned = new UpdateError(
+    "The update information isn't signed with casefile's key, so it was ignored.",
+  );
+  let env: { signed?: unknown; signature?: unknown };
+  try {
+    env = JSON.parse(new TextDecoder().decode(bytes));
+  } catch {
+    throw new UpdateError("The update information isn't valid JSON.");
+  }
+  if (typeof env?.signed !== "string" || typeof env.signature !== "string") throw unsigned;
+  let ok = false;
+  try {
+    const key = await crypto.subtle.importKey(
+      "raw",
+      decodeBase64(publicKey),
+      { name: "Ed25519" },
+      false,
+      ["verify"],
+    );
+    ok = await crypto.subtle.verify(
+      { name: "Ed25519" },
+      key,
+      decodeBase64(env.signature),
+      new TextEncoder().encode(env.signed),
+    );
+  } catch { /* a malformed signature is no signature */ }
+  if (!ok) throw unsigned;
+  let manifest: Manifest;
+  try {
+    manifest = JSON.parse(env.signed);
+  } catch {
+    throw new UpdateError("The signed update information isn't valid JSON.");
+  }
+  if (typeof manifest?.version !== "string") {
+    throw new UpdateError("The update information has no version.");
+  }
+  return manifest;
+}
+
+/** A message without URL query strings (GitHub's download links carry signed tokens). */
+function withoutQueries(message: string): string {
+  return message.replace(/\?[^\s)"'\]]*/g, "");
 }
 
 /** The `.app` bundle the running executable is in, or null (not a desktop build). */

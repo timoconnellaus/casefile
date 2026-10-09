@@ -58,7 +58,7 @@ export interface AppStateOptions {
   claudeCode?: ClaudeCodeEnv;
   /** Which copy of casefile this is, for `/api/status` (ADR 22). */
   build?: BuildInfo;
-  /** Desktop updates (ADR 24): whether one is ready. */
+  /** Desktop updates (ADR 24): checking for one, and whether one is ready. */
   updates?: Updates;
   /** Start the updated app (a new instance of the bundle); main.ts supplies it. */
   relaunch?: () => Promise<void>;
@@ -167,7 +167,22 @@ export class AppState {
   }
 
   get updateStatus(): UpdateStatus {
-    return this.opts.updates?.status ?? { enabled: false, ready: null, rolledBack: false };
+    return this.opts.updates?.status ?? {
+      enabled: false,
+      ready: null,
+      rolledBack: false,
+      checking: false,
+      lastCheck: null,
+      lastError: null,
+    };
+  }
+
+  /** Check for an update now (Settings → casefile updates) and return the status after it. */
+  async checkForUpdate(): Promise<UpdateStatus> {
+    if (!this.opts.updates || !this.updateStatus.enabled) {
+      throw new HttpError(409, "This copy of casefile doesn't update itself.");
+    }
+    return await this.opts.updates.check();
   }
 
   /**

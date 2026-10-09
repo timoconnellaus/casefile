@@ -3,7 +3,7 @@
 // checks, lock and shortcuts, this case, backup and recovery, and the passphrase.
 import { h } from "../dom.js";
 import { api, ApiError, errorText } from "../lib.js";
-import { buildNote } from "../model.js";
+import { buildNote, updateCheckNote } from "../model.js";
 import {
   announce,
   Callout,
@@ -69,6 +69,7 @@ const SECTIONS = [
   ["case", "This case"],
   ["backup", "Backup and recovery"],
   ["pass", "Passphrase"],
+  ["updates", "casefile updates"],
 ];
 
 function section(id, title, ...children) {
@@ -108,6 +109,7 @@ export default async function view(main, _params, ctx) {
     case: "This case",
     backup: "Backup and recovery",
     pass: "Passphrase",
+    updates: "casefile updates",
   };
   for (const [id] of SECTIONS) secs[id] = section(id, titles[id]);
 
@@ -1489,6 +1491,58 @@ export default async function view(main, _params, ctx) {
     );
   };
 
+  // ── casefile updates (ADR 24) ───────────────────────────────────────────
+  const when = (iso) => `${new Date(iso).toLocaleDateString("en-AU")} ${clock(iso)}`;
+  const renderUpdates = (u) => {
+    const restart = act(async () => {
+      const ok = await confirmDialog(
+        `Restart to update to casefile ${u.ready}?`,
+        "casefile closes the case, saving everything, and opens the new version. You'll need " +
+          "your passphrase to open the case again.",
+        "Restart now",
+      );
+      if (!ok) return;
+      await api("POST", "/api/update/restart");
+      announce("Restarting casefile…");
+    });
+    const check = act(async () => {
+      renderUpdates({ ...u, checking: true });
+      try {
+        const r = await api("POST", "/api/update/check");
+        renderUpdates(r.update);
+        announce(updateCheckNote(r.update, when));
+      } catch (e) {
+        renderUpdates(u);
+        throw e;
+      }
+    });
+    const note = updateCheckNote(u, when);
+    fill(
+      secs.updates,
+      h("p", { class: "muted set-build" }, buildNote(ctx.status?.build)),
+      note ? h("p", { id: "set-update-note", role: "status" }, note) : null,
+      u?.enabled
+        ? h(
+          "div",
+          { class: "hstack" },
+          h("button", {
+            type: "button",
+            class: "btn",
+            disabled: Boolean(u.checking),
+            onclick: check,
+          }, u.checking ? "Checking…" : "Check for updates"),
+          u.ready
+            ? h(
+              "button",
+              { type: "button", class: "btn btn-primary", onclick: restart },
+              "Restart to update",
+            )
+            : null,
+        )
+        : null,
+    );
+  };
+
   await checkLlm();
   renderPlan();
   renderCode();
@@ -1499,6 +1553,7 @@ export default async function view(main, _params, ctx) {
   renderCase();
   renderBackup();
   renderPass();
+  renderUpdates(ctx.status?.update);
 
   main.replaceChildren(
     h(
@@ -1510,7 +1565,6 @@ export default async function view(main, _params, ctx) {
         { class: "set-main" },
         h("h1", {}, "Settings"),
         Object.values(secs),
-        h("p", { class: "muted set-build" }, buildNote(ctx.status?.build)),
       ),
     ),
   );

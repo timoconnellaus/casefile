@@ -4,6 +4,8 @@
  * SYNTHETIC data only (ADR 11).
  */
 import { assert, assertEquals, assertExists } from "@std/assert";
+import { decodeBase64 } from "@std/encoding/base64";
+import { encodeHex } from "@std/encoding/hex";
 import { join } from "@std/path";
 import { AppState, type AppStateOptions } from "../../src/app/state.ts";
 import { createHandler } from "../../src/app/server.ts";
@@ -197,4 +199,92 @@ export function assertSecurityHeaders(res: Res, what: string) {
 
 export function assertNoSecrets(text: string, what: string) {
   for (const s of SECRETS) assert(!text.includes(s), `${what} contains "${s}"`);
+}
+
+/**
+ * A stand-in for GitHub's release downloads (ADR 24): `<base>/X` redirects to the tagged release,
+ * which redirects to a signed URL on another host, as github.com sends you to
+ * release-assets.githubusercontent.com. Here the other host is `localhost` on the same port.
+ * `base` is what the app is configured with.
+ */
+export function releaseServer(files: Record<string, Uint8Array | string>, tag = "v0.3.0") {
+  const hits: string[] = [];
+  let port = 0;
+  const server = Deno.serve({ hostname: "127.0.0.1", port: 0, onListen() {} }, (req): Response => {
+    const url = new URL(req.url);
+    const host = req.headers.get("host") ?? "";
+    hits.push(`${host}${url.pathname}`);
+    let m = /^\/releases\/latest\/download\/([^/]+)$/.exec(url.pathname);
+    if (m) {
+      return Response.redirect(`http://127.0.0.1:${port}/releases/download/${tag}/${m[1]}`, 302);
+    }
+    m = /^\/releases\/download\/[^/]+\/([^/]+)$/.exec(url.pathname);
+    if (m) return Response.redirect(`http://localhost:${port}/asset/${m[1]}?token=SIGNED`, 302);
+    m = /^\/asset\/([^/]+)$/.exec(url.pathname);
+    if (m && host.startsWith("localhost:") && url.searchParams.get("token") === "SIGNED") {
+      const body = files[m[1]];
+      if (body !== undefined) return new Response(body as BodyInit);
+    }
+    return new Response("Not Found", { status: 404 });
+  });
+  port = server.addr.port;
+  return { base: `http://127.0.0.1:${port}/releases/latest/download`, hits, server };
+}
+
+/**
+ * `Deno.autoUpdate` as Deno 2.9.7 implements it (cli/rt/desktop.rs), for tests: one check ~1s
+ * after the call, fetching `<url>/latest.json` and `<url>/<patch>` with `redirect: "error"`,
+ * checking the signature and the patch's SHA-256, then "staging" it. `calls` records each call.
+ */
+export function denoAutoUpdate(version: string) {
+  const calls: { url: string }[] = [];
+  const staged: string[] = [];
+  const errors: string[] = [];
+  const autoUpdate = (opts: {
+    url: string;
+    publicKey: string;
+    onUpdateReady?: (v: string) => void;
+  }) => {
+    calls.push({ url: opts.url });
+    if (!opts.url) return;
+    const base = opts.url.replace(/\/$/, "");
+    setTimeout(async () => {
+      try {
+        const resp = await fetch(base + "/latest.json", { cache: "no-store", redirect: "error" });
+        if (!resp.ok) return;
+        const env = await resp.json();
+        const key = await crypto.subtle.importKey(
+          "raw",
+          decodeBase64(opts.publicKey),
+          { name: "Ed25519" },
+          false,
+          ["verify"],
+        );
+        const ok = await crypto.subtle.verify(
+          { name: "Ed25519" },
+          key,
+          decodeBase64(env.signature),
+          new TextEncoder().encode(env.signed),
+        );
+        if (!ok) return void errors.push("manifest signature verification failed");
+        const manifest = JSON.parse(env.signed);
+        if (manifest.version === version) return;
+        const entry = manifest.patches?.[version];
+        if (!entry) return;
+        const patchResp = await fetch(base + "/" + entry.name, {
+          cache: "no-store",
+          redirect: "error",
+        });
+        if (!patchResp.ok) return;
+        const bytes = new Uint8Array(await patchResp.arrayBuffer());
+        const sha = encodeHex(await crypto.subtle.digest("SHA-256", bytes));
+        if (sha !== entry.sha256) return void errors.push("patch SHA-256 mismatch");
+        staged.push(manifest.version);
+        opts.onUpdateReady?.(manifest.version);
+      } catch (e) {
+        errors.push(`check failed: ${(e as Error).message}`);
+      }
+    }, 1000);
+  };
+  return { autoUpdate, calls, staged, errors };
 }

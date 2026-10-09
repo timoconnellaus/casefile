@@ -1,0 +1,283 @@
+/* Issues and evidence (W2-5, mockup wb/Issues.dc.html). Colours from tokens.css only. */
+
+.iss-columns {
+  align-items: stretch;
+}
+
+/* ── left column: the issue list ───────────────────────── */
+.iss-side {
+  max-width: 340px;
+  padding: 14px 0;
+  gap: var(--sp-2);
+}
+
+.iss-side > :not(.iss-list) {
+  padding: 0 var(--sp-4);
+}
+
+.iss-filters {
+  align-items: flex-end;
+}
+
+.iss-filters .field {
+  flex: 1 1 120px;
+}
+
+.iss-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.iss-row {
+  width: 100%;
+  font: inherit;
+  color: var(--ink);
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--line-soft);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-1);
+  padding: 10px var(--sp-4);
+  min-height: var(--target-lg);
+}
+
+.iss-row:hover {
+  background: var(--panel-2);
+}
+
+.iss-row:focus-visible {
+  outline-offset: -2px;
+}
+
+.iss-row.is-current {
+  background: var(--raised);
+  box-shadow: inset 2px 0 0 var(--ink);
+}
+
+.iss-row-title {
+  font-weight: 500;
+}
+
+.iss-row-counts {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+.iss-side-foot {
+  margin-top: var(--sp-3);
+}
+
+/* ── main column ───────────────────────────────────────── */
+.iss-main {
+  padding: var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+  max-width: 1180px;
+}
+
+.iss-title {
+  font-size: var(--fs-h2);
+  font-weight: 600;
+}
+
+.iss-title:focus {
+  outline: none;
+}
+
+.iss-panel {
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-lg);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.iss-panel-head {
+  flex-wrap: wrap;
+}
+
+.iss-panel h3,
+.iss-stance h3,
+.iss-usedin h3 {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  margin: 0;
+}
+
+.iss-desc {
+  margin: 0;
+}
+
+.iss-guidance {
+  font-size: var(--fs-body);
+  color: var(--muted);
+  margin: 0;
+}
+
+.iss-helper {
+  font-size: var(--fs-body);
+  color: var(--ink);
+  margin: 0;
+}
+
+.iss-usedin {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px var(--sp-4);
+}
+
+/* ── ticks and radios ──────────────────────────────────── */
+.iss-yourcheck,
+.iss-stance-pick {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+}
+
+.iss-legend {
+  font-size: var(--fs-body);
+  font-weight: 600;
+  color: var(--ink);
+  padding: 0;
+  margin-bottom: var(--sp-2);
+}
+
+.iss-stance-pick legend {
+  margin-bottom: var(--sp-1);
+}
+
+.iss-radio {
+  display: inline-grid;
+  grid-template-columns: 22px auto;
+  gap: 6px;
+  align-items: center;
+  min-height: var(--target);
+  padding: 4px 10px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  color: var(--ink);
+}
+
+/* ── stance groups and evidence cards ──────────────────── */
+.iss-stance {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.iss-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: 10px;
+}
+
+.iss-card {
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  background: var(--panel);
+  padding: var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.iss-card.is-wide {
+  grid-column: 1 / -1;
+  border-color: var(--control);
+}
+
+.iss-card-top {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px var(--sp-2);
+  font-size: var(--fs-sm);
+}
+
+.iss-quote {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  color: var(--ink);
+  border-left: 2px solid var(--control);
+  padding-left: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.iss-notelabel {
+  font-size: var(--fs-sm);
+}
+
+.iss-note {
+  margin: 0;
+}
+
+.iss-own {
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.iss-own .icon {
+  color: var(--attn);
+}
+
+.iss-checkarea {
+  border-top: 1px solid var(--line);
+  margin-top: var(--sp-1);
+  padding-top: var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.iss-checkarea h4 {
+  font-size: var(--fs-body);
+  font-weight: 600;
+  margin: 0;
+}
+
+/* ── add evidence ──────────────────────────────────────── */
+.iss-pick {
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.iss-docpick {
+  max-width: 420px;
+}
+
+.iss-num {
+  width: 90px;
+}
+
+/* ── removed items ─────────────────────────────────────── */
+.iss-removed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.iss-removed li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 10px 0;
+  border-top: 1px solid var(--line-soft);
+}

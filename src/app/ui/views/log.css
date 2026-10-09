@@ -1,0 +1,167 @@
+/* AI-use log (W2-7): "If the Court asks" summary + full log (wb/Log.dc.html). */
+
+.log {
+  padding: var(--sp-6) var(--sp-6) 48px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+  max-width: 1040px;
+  width: 100%;
+}
+
+.log-measure {
+  max-width: 760px;
+}
+
+/* ── the summary ─────────────────────────────────────────── */
+.log-court {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  padding: var(--sp-5) 22px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+}
+
+.log-court-title {
+  font-size: var(--fs-h2);
+}
+
+.log-court-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.log-q {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+
+.log-lines {
+  margin: 0;
+  padding-left: var(--sp-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  max-width: 820px;
+}
+
+.log-court-actions {
+  padding-top: var(--sp-1);
+}
+
+/* ── the full log ────────────────────────────────────────── */
+.log-check {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+  padding: 10px var(--sp-3);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+}
+
+.log-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.log-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-md);
+}
+
+.log-select,
+.log-input {
+  font: inherit;
+  font-size: var(--fs-md);
+  min-height: var(--target);
+  padding: 0 var(--sp-2);
+  background: var(--bg);
+  color: var(--ink);
+  border: 1px solid var(--control);
+  border-radius: var(--r-sm);
+}
+
+.log-input[aria-invalid="true"] {
+  border-color: var(--danger);
+}
+
+.log-doc {
+  width: 7em;
+}
+
+.log-day {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.log-day-title {
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+
+.log-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+.log-table {
+  width: 100%;
+  min-width: 720px;
+  border-collapse: collapse;
+  font-size: var(--fs-md);
+}
+
+.log-table thead tr {
+  background: var(--panel-2);
+}
+
+.log-table th,
+.log-table td {
+  padding: var(--sp-2) 14px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.log-table thead th {
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.log-table tbody tr {
+  border-top: 1px solid var(--line);
+}
+
+.log-table tbody th {
+  font-weight: 400;
+}
+
+.log-col-time {
+  width: 64px;
+}
+
+.log-col-who {
+  width: 110px;
+}
+
+.log-col-detail {
+  width: 32%;
+}
+
+.log-detail {
+  flex-wrap: wrap;
+  gap: 6px;
+  color: var(--ent-id);
+}
+
+.log-table tr.log-forged {
+  background: var(--danger-bg);
+}

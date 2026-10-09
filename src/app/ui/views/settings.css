@@ -1,0 +1,283 @@
+/* Settings (W2-8): wb/Settings.dc.html. The .set-commercial panel is also used on Getting started. */
+
+.set-layout {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  min-height: 0;
+}
+
+.set-nav {
+  flex: 1 1 200px;
+  max-width: 240px;
+  border-right: 1px solid var(--line);
+  padding: var(--sp-4) 0;
+}
+
+.set-nav ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  position: sticky;
+  top: var(--sp-4);
+}
+
+.set-nav-link {
+  display: flex;
+  align-items: center;
+  min-height: var(--target);
+  padding: 6px var(--sp-4);
+  color: #c3cad1;
+  text-decoration: none;
+}
+
+.set-nav-link:hover {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+.set-nav-foot {
+  padding: var(--sp-4);
+}
+
+.set-main {
+  flex: 999 1 560px;
+  min-width: 0;
+  max-width: 900px;
+  padding: var(--sp-6) 32px 56px;
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+}
+
+.set-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  scroll-margin-top: var(--sp-4);
+}
+
+.set-section > h2 {
+  font-size: var(--fs-h2);
+}
+
+.set-section > h2:focus {
+  outline: none;
+}
+
+.set-lede {
+  max-width: 680px;
+}
+
+.set-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(280px, 100%), 1fr));
+  gap: var(--sp-3);
+}
+
+.set-card {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+}
+
+.set-card > input,
+.set-tick > input,
+.start-check > input {
+  margin-top: 2px;
+}
+
+.set-card.is-on {
+  background: var(--raised);
+  border-color: var(--control);
+  box-shadow: inset 2px 0 0 var(--ink);
+}
+
+.set-commercial {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 18px 20px;
+  border: 1px solid var(--control);
+  border-left: 3px solid var(--ink);
+  border-radius: var(--r-md);
+  background: var(--confirm);
+}
+
+.set-commercial-title {
+  font-size: var(--fs-lg);
+}
+
+.set-subtitle {
+  font-size: var(--fs-body);
+}
+
+.set-legend {
+  font-weight: 600;
+  padding-bottom: 6px;
+}
+
+.set-commercial fieldset {
+  gap: 10px;
+}
+
+.set-tick {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+}
+
+.set-doclist {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.set-actions {
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.set-commercial .btn-primary[aria-disabled="true"],
+.set-main .btn[aria-disabled="true"] {
+  cursor: not-allowed;
+}
+
+.set-commercial .btn-primary[aria-disabled="true"] {
+  background: var(--disabled-bg);
+  color: var(--muted);
+  border: 0;
+}
+
+.set-box {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+}
+
+.set-sublist {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  color: var(--muted);
+}
+
+.set-changed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: var(--sp-3) 14px;
+  border: 1px solid var(--attn-line);
+  border-radius: var(--r-md);
+}
+
+.set-changed .hstack {
+  flex-wrap: wrap;
+}
+
+.set-llm-status {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: var(--sp-3) 14px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+}
+
+.set-details > summary {
+  cursor: pointer;
+  min-height: var(--target);
+  display: flex;
+  align-items: center;
+  color: #c3cad1;
+}
+
+.set-details > div {
+  padding: var(--sp-2) 0 0;
+  gap: var(--sp-3);
+}
+
+.set-pre {
+  margin: 0;
+  padding: 10px var(--sp-3);
+  background: var(--bg-deep);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.set-grid2 {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(240px, 100%), 1fr));
+  gap: var(--sp-3);
+}
+
+.set-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.set-field label {
+  color: var(--muted);
+}
+
+.set-field input,
+.set-field select,
+.status-row select {
+  min-height: 38px;
+}
+
+.set-field--row {
+  max-width: 560px;
+}
+
+.set-field--row .hstack > input {
+  flex: 1;
+  min-width: 0;
+}
+
+.set-riskybox {
+  gap: var(--sp-3);
+  padding: 14px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+}
+
+.set-risky {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.set-keypanel {
+  padding: var(--sp-4) 18px;
+  border: 1px solid var(--control);
+  border-left: 3px solid var(--ink);
+  border-radius: var(--r-md);
+  background: var(--confirm);
+  gap: var(--sp-3);
+  max-width: 680px;
+}
+
+@media (max-width: 760px) {
+  .set-nav {
+    max-width: none;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .set-main {
+    padding: var(--sp-5) var(--sp-4) 48px;
+  }
+}

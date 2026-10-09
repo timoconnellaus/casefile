@@ -1,0 +1,1397 @@
+/*
+ * Component styles (DESIGN-SPEC §1–§5, ADR 0020). One section per component in components/.
+ * Colours come from tokens.css only.
+ */
+
+/* ── page layout ────────────────────────────────────────── */
+.page {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.page:focus {
+  outline: none;
+}
+
+.page-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-3);
+  padding: var(--sp-3) var(--sp-5);
+  border-bottom: 1px solid var(--line);
+}
+
+.page-head h1:focus {
+  outline: none;
+}
+
+.page-body {
+  padding: var(--sp-5);
+  max-width: 1100px;
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px var(--sp-3);
+  padding: 14px var(--sp-5) 10px;
+}
+
+/* Main column + side panels, wrapping on narrow screens. */
+.columns {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  min-height: 0;
+}
+
+.col-main {
+  flex: 999 1 640px;
+  min-width: 0;
+}
+
+.col-side {
+  flex: 1 1 280px;
+  max-width: 360px;
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.col-side--left {
+  border-left: 0;
+  border-right: 1px solid var(--line);
+}
+
+.section-title {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+
+/* ── buttons ────────────────────────────────────────────── */
+.btn {
+  font: inherit;
+  font-size: var(--fs-md);
+  min-height: var(--target);
+  padding: 0 12px;
+  border: 1px solid var(--control);
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+a.btn,
+a.btn:hover {
+  color: var(--ink);
+  text-decoration: none;
+}
+
+/* A link drawn as a primary or danger button keeps that button's ink: the rule above is more
+   specific than .btn-primary, so without these a primary link was light text on light. */
+a.btn.btn-primary,
+a.btn.btn-primary:hover {
+  color: var(--primary-ink);
+}
+
+a.btn.btn-danger,
+a.btn.btn-danger:hover {
+  color: var(--danger);
+}
+
+.btn:hover {
+  background: var(--hover);
+}
+
+.btn:disabled,
+.btn[aria-disabled="true"] {
+  border-color: var(--line-2);
+  color: var(--faint);
+  background: transparent;
+  cursor: not-allowed;
+}
+
+.btn-lg {
+  min-height: var(--target-lg);
+  font-size: var(--fs-body);
+  padding: 0 14px;
+}
+
+.btn-primary {
+  border: 0;
+  background: var(--primary-bg);
+  color: var(--primary-ink);
+  font-weight: 600;
+  padding: 0 18px;
+}
+
+.btn-primary:hover {
+  background: #ffffff;
+}
+
+.btn-primary:disabled {
+  background: var(--disabled-bg);
+  color: var(--muted);
+}
+
+/* A consequential primary action that removes or withdraws something. Still neutral-light
+   (colour never carries meaning alone); the label says what happens. */
+.btn-primary--danger {
+  box-shadow: inset 0 -3px 0 var(--danger);
+}
+
+.btn-quiet {
+  border-color: transparent;
+}
+
+.btn-quiet:hover {
+  border-color: var(--line-2);
+}
+
+.btn-danger {
+  color: var(--danger);
+  border-color: var(--danger-line);
+}
+
+.btn-link {
+  font: inherit;
+  font-size: var(--fs-md);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: var(--target);
+  min-width: var(--target);
+  padding: 0 4px;
+  border: 0;
+  background: transparent;
+  color: var(--link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+}
+
+.btn-link:hover {
+  color: var(--link-hover);
+}
+
+.icon {
+  flex: none;
+  vertical-align: -1px;
+}
+
+/* ── Badge, Tag, ActorLabel ─────────────────────────────── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  line-height: 18px;
+  padding: 1px 8px;
+  border-radius: var(--r-sm);
+  border: 1px solid var(--control);
+  color: var(--ink);
+  background: transparent;
+  white-space: nowrap;
+}
+
+.badge--sm {
+  padding: 0 6px;
+}
+
+.badge--attention {
+  color: var(--attn);
+  background: var(--attn-bg);
+  border-color: var(--attn-line);
+}
+
+.badge--danger {
+  color: var(--danger);
+  background: var(--danger-bg);
+  border-color: var(--danger-line);
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--fs-xs);
+  line-height: 16px;
+  padding: 0 5px;
+  border: 1px solid var(--control);
+  border-radius: var(--r-xs);
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.actor {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.actor--claude,
+.actor--user {
+  color: var(--ink);
+}
+
+/* ── entity colour slots ────────────────────────────────── */
+/* Each class sets the hue and its tints; marks, chips and dots read them. */
+.ent-c0 {
+  --e: var(--ent-c0);
+  --e-tint: rgba(255, 170, 187, 0.12);
+  --e-tint-on: rgba(255, 170, 187, 0.24);
+  --e-chip: rgba(255, 170, 187, 0.14);
+  --e-line: rgba(255, 170, 187, 0.55);
+}
+
+.ent-c1 {
+  --e: var(--ent-c1);
+  --e-tint: rgba(119, 170, 221, 0.12);
+  --e-tint-on: rgba(119, 170, 221, 0.24);
+  --e-chip: rgba(119, 170, 221, 0.14);
+  --e-line: rgba(119, 170, 221, 0.55);
+}
+
+.ent-c2 {
+  --e: var(--ent-c2);
+  --e-tint: rgba(68, 187, 153, 0.12);
+  --e-tint-on: rgba(68, 187, 153, 0.24);
+  --e-chip: rgba(68, 187, 153, 0.14);
+  --e-line: rgba(68, 187, 153, 0.55);
+}
+
+.ent-c3 {
+  --e: var(--ent-c3);
+  --e-tint: rgba(187, 204, 51, 0.12);
+  --e-tint-on: rgba(187, 204, 51, 0.24);
+  --e-chip: rgba(187, 204, 51, 0.14);
+  --e-line: rgba(187, 204, 51, 0.55);
+}
+
+.ent-c4 {
+  --e: var(--ent-c4);
+  --e-tint: rgba(153, 221, 255, 0.12);
+  --e-tint-on: rgba(153, 221, 255, 0.24);
+  --e-chip: rgba(153, 221, 255, 0.14);
+  --e-line: rgba(153, 221, 255, 0.55);
+}
+
+.ent-c5 {
+  --e: var(--ent-c5);
+  --e-tint: rgba(238, 221, 136, 0.12);
+  --e-tint-on: rgba(238, 221, 136, 0.24);
+  --e-chip: rgba(238, 221, 136, 0.14);
+  --e-line: rgba(238, 221, 136, 0.55);
+}
+
+.ent-ink {
+  --e: var(--ent-ink);
+  --e-tint: rgba(213, 218, 224, 0.1);
+  --e-tint-on: rgba(213, 218, 224, 0.2);
+  --e-chip: rgba(213, 218, 224, 0.1);
+  --e-line: rgba(213, 218, 224, 0.45);
+}
+
+.ent-id {
+  --e: var(--ent-id);
+  --e-tint: rgba(195, 202, 209, 0.1);
+  --e-tint-on: rgba(195, 202, 209, 0.2);
+  --e-chip: rgba(195, 202, 209, 0.1);
+  --e-line: rgba(195, 202, 209, 0.45);
+}
+
+/* EntityMark: colour + 1.5px underline (shape by kind) + 12% tint. */
+.ent {
+  color: var(--e);
+  background: var(--e-tint);
+  text-decoration-line: underline;
+  text-decoration-color: var(--e);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+  border-radius: var(--r-xs);
+  padding: 0 2px;
+  cursor: pointer;
+  transition: opacity 120ms;
+}
+
+.ent-solid {
+  text-decoration-style: solid;
+}
+
+.ent-dashed {
+  text-decoration-style: dashed;
+}
+
+.ent-dotted {
+  text-decoration-style: dotted;
+}
+
+/* TokenChip: mono, colour text, 14% tint, 1px border at 55%, radius 4px. */
+.token {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--e, var(--muted));
+  background: var(--e-chip, transparent);
+  border: 1px solid var(--e-line, var(--control));
+  border-radius: var(--r-sm);
+  padding: 0 4px;
+  white-space: nowrap;
+  transition: opacity 120ms;
+}
+
+.token--unknown {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--danger);
+  background: var(--danger-bg);
+  border-color: var(--danger-line);
+}
+
+/* Linking: one entity highlighted, the rest dimmed to 60% (never lower). */
+.is-linking .ent:not(.is-on),
+.is-linking .token:not(.is-on):not(.token--unknown),
+.is-linking .key-item:not(.is-on) {
+  opacity: var(--dim);
+}
+
+.ent.is-on,
+.token.is-on {
+  outline: 1.5px solid var(--e);
+  outline-offset: 1px;
+}
+
+.ent.is-on {
+  background: var(--e-tint-on);
+}
+
+/* The focus ring wins over the linking outline. */
+.ent:focus-visible,
+.token:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Plain by default on Chronology, Issues and Draft ("Highlight people" off). */
+.ent-plain .ent {
+  color: inherit;
+  background: transparent;
+  text-decoration-line: none;
+  padding: 0;
+  cursor: text;
+}
+
+.ent-plain .is-linking .ent:not(.is-on),
+.ent-plain.is-linking .ent:not(.is-on) {
+  opacity: 1;
+}
+
+/* No tint in an affidavit body. */
+.ent-notint .ent {
+  background: transparent;
+}
+
+/* EntityDot: round = person, square = place/organisation, dotted ring = number/date. */
+.ent-dot {
+  display: inline-block;
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 5px;
+  background: var(--e);
+  vertical-align: baseline;
+}
+
+.ent-dot--place {
+  border-radius: 2px;
+}
+
+.ent-dot--id {
+  background: transparent;
+  border: 1.5px dotted var(--e);
+}
+
+/* ── Key (legend) ───────────────────────────────────────── */
+.key {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+  padding: 10px var(--sp-5) var(--sp-3);
+  border-bottom: 1px solid var(--line);
+}
+
+.key-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.key-title {
+  margin-right: 4px;
+}
+
+.key-item {
+  font: inherit;
+  font-size: var(--fs-md);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: var(--target);
+  padding: 0 10px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--control);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  transition: opacity 120ms;
+}
+
+.key-item[aria-pressed="true"] {
+  border-color: var(--ink);
+  background: var(--raised);
+}
+
+.key-count {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+.key-shapes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  font-size: var(--fs-md);
+}
+
+.shape-sample {
+  text-decoration-line: underline;
+  text-decoration-color: var(--ink);
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+}
+
+/* ── SourcePanel ────────────────────────────────────────── */
+.src {
+  margin: 0;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  background: var(--bg);
+}
+
+.src-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px 10px;
+  padding: var(--sp-2) 10px;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-md);
+}
+
+.src-own {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+.src-lines {
+  list-style: none;
+  margin: 0;
+  padding: var(--sp-2) 0;
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  line-height: 1.7;
+}
+
+.src-lines:focus {
+  outline: none;
+}
+
+.src-lines li {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  gap: var(--sp-2);
+  padding: 1px 10px 1px 0;
+}
+
+.src-ln {
+  color: var(--faint);
+  text-align: right;
+  user-select: none;
+}
+
+.src-lines li.is-context {
+  color: var(--muted);
+}
+
+.src-lines li.is-cited {
+  background: var(--raised);
+  box-shadow: inset 2px 0 0 var(--ink);
+  color: var(--ink);
+}
+
+.src-lines li.is-cited .src-ln {
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.src-text {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.src-closed {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 10px;
+  font-size: var(--fs-md);
+  color: var(--muted);
+}
+
+/* ── CheckList ──────────────────────────────────────────── */
+.checklist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.checklist li {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: var(--sp-2);
+}
+
+.check-glyph {
+  padding-top: 2px;
+}
+
+.check--ok .check-glyph {
+  color: var(--ink);
+}
+
+.check--attention .check-glyph {
+  color: var(--attn);
+}
+
+.check--danger .check-glyph {
+  color: var(--danger);
+}
+
+/* ── Callout and EmptyState ─────────────────────────────── */
+.callout {
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  padding: 10px var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.callout-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
+.callout--attention {
+  border-color: var(--attn-line);
+  background: var(--attn-bg);
+}
+
+.callout--attention .callout-title {
+  color: var(--attn);
+}
+
+.callout--danger {
+  border-color: var(--danger-line);
+  background: var(--danger-bg);
+}
+
+.callout--danger .callout-title {
+  color: var(--danger);
+}
+
+.callout--info .callout-title {
+  color: var(--ink);
+}
+
+.empty {
+  border: 1px dashed var(--control);
+  border-radius: var(--r-md);
+  padding: var(--sp-4);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.empty--danger {
+  border-style: solid;
+  border-color: var(--danger-line);
+  background: var(--danger-bg);
+}
+
+.empty-title {
+  font-size: var(--fs-body);
+}
+
+/* ── ConfirmBar ─────────────────────────────────────────── */
+.confirmbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3) var(--sp-5);
+  padding: 14px var(--sp-5);
+  background: var(--confirm);
+  border: 1px solid var(--control);
+  border-radius: var(--r-lg);
+}
+
+.confirmbar--sticky {
+  position: sticky;
+  bottom: 0;
+  z-index: 3;
+  border-radius: 0;
+  border-width: 1px 0 0;
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.confirmbar-text {
+  flex: 1 1 420px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-1);
+}
+
+.confirmbar-title {
+  font-size: var(--fs-xl);
+}
+
+.confirmbar-summary {
+  font-size: var(--fs-lg);
+}
+
+.confirmbar-detail {
+  color: var(--muted);
+}
+
+/* ── Toast ──────────────────────────────────────────────── */
+.cf-toast {
+  position: fixed;
+  z-index: 20;
+  left: var(--sp-5);
+  bottom: var(--sp-5);
+  max-width: min(560px, calc(100vw - 40px));
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-2) var(--sp-2) 14px;
+  background: var(--raised);
+  border: 1px solid var(--control);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+}
+
+.cf-toast--danger {
+  background: var(--danger-bg);
+  border-color: var(--danger-line);
+}
+
+.cf-toast--danger > .icon {
+  color: var(--danger);
+}
+
+.cf-toast-msg {
+  flex: 1;
+}
+
+.cf-toast-close {
+  padding: 0 8px;
+}
+
+/* ── FilterChips, Segmented, Toggle, Field ──────────────── */
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.chip {
+  font: inherit;
+  font-size: var(--fs-md);
+  min-height: var(--target);
+  padding: 0 10px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--control);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.chip[aria-pressed="true"] {
+  border-color: var(--ink);
+  background: var(--raised);
+  font-weight: 600;
+}
+
+.chip-count {
+  font-size: var(--fs-sm);
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.seg {
+  align-self: flex-start;
+  display: inline-flex;
+  flex-wrap: wrap;
+  border: 1px solid var(--control);
+  border-radius: var(--r-sm);
+  overflow: hidden;
+}
+
+.seg button {
+  font: inherit;
+  font-size: var(--fs-md);
+  min-height: var(--target);
+  padding: 0 12px;
+  border: 0;
+  border-right: 1px solid var(--line-2);
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.seg button:last-child {
+  border-right: 0;
+}
+
+.seg button[aria-pressed="true"] {
+  background: var(--raised);
+  color: var(--ink);
+  font-weight: 500;
+  box-shadow: inset 0 -2px 0 var(--ink);
+}
+
+.seg button:focus-visible {
+  outline-offset: -2px;
+}
+
+.seg-count {
+  font-size: var(--fs-sm);
+}
+
+.toggle {
+  align-self: flex-start;
+  font: inherit;
+  font-size: var(--fs-md);
+  min-height: var(--target);
+  padding: 0 12px 0 8px;
+  border: 1px solid var(--control);
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.toggle-switch {
+  position: relative;
+  width: 26px;
+  height: 14px;
+  border-radius: 7px;
+  border: 1px solid var(--muted);
+}
+
+.toggle-switch::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 8px;
+  height: 8px;
+  border-radius: 4px;
+  background: var(--muted);
+}
+
+.toggle[aria-pressed="true"] .toggle-switch {
+  background: var(--ink);
+  border-color: var(--ink);
+}
+
+.toggle[aria-pressed="true"] .toggle-switch::after {
+  left: 14px;
+  background: var(--primary-ink);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+.field input,
+.field select,
+.field textarea {
+  font-size: var(--fs-md);
+}
+
+.field-hint {
+  font-size: var(--fs-md);
+  color: var(--muted);
+}
+
+/* ── Dialog ─────────────────────────────────────────────── */
+.dialog {
+  width: min(560px, calc(100vw - 32px));
+  border: 1px solid var(--control);
+  border-radius: var(--r-lg);
+  background: var(--panel-2);
+  color: var(--ink);
+  padding: var(--sp-5);
+  box-shadow: var(--shadow);
+}
+
+.dialog--wide {
+  width: min(820px, calc(100vw - 32px));
+}
+
+.dialog::backdrop {
+  background: rgba(8, 10, 12, 0.7);
+}
+
+.dialog-title {
+  font-size: var(--fs-h2);
+  margin-bottom: var(--sp-3);
+}
+
+.dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.dialog-actions {
+  margin-top: var(--sp-5);
+}
+
+/* ── DataTable ──────────────────────────────────────────── */
+.dtable-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+.dtable {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-md);
+}
+
+.dtable thead tr {
+  background: var(--panel-2);
+  text-align: left;
+}
+
+.dtable th {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--muted);
+  text-align: left;
+  padding: 6px 10px;
+  white-space: nowrap;
+}
+
+.dtable tbody th {
+  font-size: var(--fs-md);
+  color: var(--ink);
+  font-weight: 500;
+}
+
+.dtable td,
+.dtable tbody th {
+  padding: 10px;
+  border-top: 1px solid var(--line-soft);
+  vertical-align: top;
+}
+
+.dtable tbody tr:hover {
+  background: var(--panel-2);
+}
+
+.dtable tbody tr.is-selected {
+  background: var(--raised);
+  box-shadow: inset 2px 0 0 var(--ink);
+}
+
+.dtable .is-num {
+  font-family: var(--font-mono);
+  text-align: right;
+}
+
+.dtable-select {
+  width: 44px;
+  padding-left: 6px !important;
+  padding-right: 0 !important;
+}
+
+/* The whole cell area is the checkbox's target: at least 32 x 32 (spec §7, QA G9). */
+.dtable-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: var(--target);
+  min-height: var(--target);
+  cursor: pointer;
+}
+
+.dtable-sort {
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--muted);
+  background: transparent;
+  border: 0;
+  min-height: var(--target);
+  padding: 0 4px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+th[aria-sort="ascending"] .dtable-sort,
+th[aria-sort="descending"] .dtable-sort {
+  color: var(--ink);
+}
+
+.dtable-empty {
+  color: var(--muted);
+  text-align: center;
+  padding: var(--sp-6) !important;
+}
+
+.pager {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+/* ── selected rows anywhere (lists, queues) ─────────────── */
+.is-selected-row,
+[aria-current="true"].list-row {
+  background: var(--raised);
+  box-shadow: inset 2px 0 0 var(--ink);
+}
+
+/* ── LinesTable (document text) ─────────────────────────── */
+.lines-table {
+  width: 100%;
+  max-width: 960px;
+  border-collapse: collapse;
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  line-height: var(--lh-text);
+}
+
+.lines-table--side {
+  max-width: none;
+  min-width: 760px;
+  table-layout: fixed;
+}
+
+.lines-table thead tr {
+  border-bottom: 1px solid var(--line);
+}
+
+.lines-table thead th {
+  font-family: var(--font-sans);
+  padding: var(--sp-2) var(--sp-4);
+  text-align: left;
+}
+
+.lines-table th.lines-n {
+  width: 52px;
+  padding: 0 var(--sp-3) 0 0;
+  text-align: right;
+  vertical-align: top;
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  font-weight: 400;
+  color: var(--faint);
+}
+
+.lines-table thead th.lines-n {
+  padding: var(--sp-2) var(--sp-3) var(--sp-2) 0;
+  font-family: var(--font-sans);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--muted);
+}
+
+.lines-table td {
+  padding: 0 var(--sp-4);
+  vertical-align: top;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.lines-table .lines-split,
+.lines-table--side td.lines-claude {
+  border-left: 1px solid var(--line);
+}
+
+.lines-table td.lines-claude {
+  color: var(--muted);
+}
+
+.lines-table tr.is-cited {
+  background: var(--raised);
+  box-shadow: inset 2px 0 0 var(--ink);
+}
+
+.lines-table tr.is-cited th.lines-n {
+  color: var(--ink);
+}
+
+/* ── promoted from wave-2 screens ───────────────────────── */
+
+/* StatusRow / SwitchRow: glyph · title and sub · meta, in a bordered list (.set-box etc.) */
+.status-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+  padding: var(--sp-3) 14px;
+}
+
+.status-row + .status-row {
+  border-top: 1px solid var(--line);
+}
+
+.status-row-lead {
+  display: flex;
+  justify-content: center;
+  padding-top: 3px;
+}
+
+.status-row--attention .status-row-lead {
+  color: var(--attn);
+}
+
+.status-row--danger .status-row-lead {
+  color: var(--danger);
+}
+
+.status-row-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.status-row-meta {
+  text-align: right;
+  font-size: var(--fs-md);
+}
+
+.status-row-meta.vstack {
+  align-items: flex-end;
+}
+
+@media (max-width: 760px) {
+  .status-row {
+    grid-template-columns: 22px minmax(0, 1fr);
+  }
+
+  /* Whatever sits at the end (meta text, a select, buttons) goes under the text, never into the
+     22px icon column (QA Se1). */
+  .status-row > :not(.status-row-lead):not(.status-row-text),
+  .status-row-meta {
+    grid-column: 2;
+    justify-self: start;
+    text-align: left;
+  }
+
+  .status-row > select {
+    min-width: 12rem;
+    max-width: 100%;
+  }
+
+  .status-row-meta.vstack {
+    align-items: flex-start;
+  }
+}
+
+/* TypedConfirm: a risky option turned on by typing a phrase */
+.typed-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.typed-confirm-row > .typed-confirm-input {
+  flex: 1;
+  min-width: 0;
+  max-width: 320px;
+  min-height: 38px;
+}
+
+/* Tick: a checkbox with a bold label and a hint */
+.tick {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: var(--sp-2);
+  align-items: start;
+  padding: var(--sp-2) 10px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  color: var(--ink);
+  font-size: var(--fs-body);
+}
+
+.tick input {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+}
+
+.tick-hint {
+  display: block;
+  font-size: var(--fs-md);
+  color: var(--muted);
+}
+
+/* Segments' roleChips: a neutral name's role, after it, while names are highlighted */
+.role-chip {
+  font-size: var(--fs-xs);
+  color: var(--muted);
+  border: 1px solid var(--control);
+  border-radius: var(--r-xs);
+  padding: 0 4px;
+  margin-left: 3px;
+  vertical-align: 1px;
+}
+
+/* MarkTag: "needs you" / "kept" after a mark in the review text */
+.mark-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 4px;
+  padding: 1px 4px;
+  font-family: var(--font-sans);
+  font-size: var(--fs-xs);
+  line-height: 1;
+  vertical-align: 1px;
+  color: var(--muted);
+  border: 1px solid var(--control);
+  border-radius: var(--r-xs);
+  user-select: none;
+}
+
+.mark-tag--needs {
+  color: var(--attn);
+  background: var(--attn-bg);
+  border-color: var(--attn-line);
+}
+
+.mark-tag .icon {
+  width: 8px;
+  height: 8px;
+}
+
+/* CopyBlock: text to copy somewhere else */
+.copy-block-text {
+  margin: 0;
+  padding: var(--sp-2) 10px;
+  background: var(--bg);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* ExternalLink: opens in the web browser */
+.extlink {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.extlink-icon {
+  align-self: center;
+}
+
+/* ── PassField ──────────────────────────────────────────── */
+.pf {
+  display: flex;
+  gap: 6px;
+}
+
+.pf-input {
+  min-height: var(--target-lg);
+  padding: 0 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.pf > .pf-input {
+  flex: 1;
+}
+
+.pf-show {
+  min-width: 64px;
+}
+
+/* ── RecoveryKeyPanel ───────────────────────────────────── */
+.rk-sheet {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.rk-title {
+  font-size: var(--fs-h1);
+}
+
+.rk-box {
+  border: 1px solid var(--control);
+  border-radius: var(--r-md);
+  background: var(--bg-deep);
+  padding: var(--sp-4) var(--sp-5);
+}
+
+.rk-key {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  letter-spacing: 0.06em;
+  word-spacing: 0.3em;
+  overflow-wrap: anywhere;
+  user-select: all;
+}
+
+.rk-actions {
+  flex-wrap: wrap;
+}
+
+.rk-print-only {
+  display: none;
+}
+
+.rk-sheet .btn-primary[aria-disabled="true"] {
+  background: var(--disabled-bg);
+  color: var(--muted);
+  border: 0;
+}
+
+.rk-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: var(--target);
+}
+
+.rk-check > input {
+  margin-top: 2px;
+}
+
+@media print {
+  body.is-printing-key * {
+    visibility: hidden;
+  }
+
+  body.is-printing-key .rk-sheet.is-printing,
+  body.is-printing-key .rk-sheet.is-printing .rk-title,
+  body.is-printing-key .rk-sheet.is-printing .rk-box,
+  body.is-printing-key .rk-sheet.is-printing .rk-box *,
+  body.is-printing-key .rk-sheet.is-printing .rk-print-only {
+    visibility: visible;
+  }
+
+  body.is-printing-key .rk-sheet.is-printing {
+    position: absolute;
+    inset: 0 auto auto 0;
+    color: #000;
+    background: #fff;
+    padding: 24px;
+  }
+
+  body.is-printing-key .rk-sheet.is-printing .rk-print-only {
+    display: block;
+    color: #000;
+  }
+
+  body.is-printing-key .rk-sheet.is-printing .rk-box {
+    background: #fff;
+    border-color: #000;
+  }
+
+  body.is-printing-key .rk-sheet.is-printing .rk-key,
+  body.is-printing-key .rk-sheet.is-printing .rk-title {
+    color: #000;
+  }
+}
+
+/* Stand-alone links (a link on its own in a row, cell or panel, not inside running text) are at
+   least 32 px tall, like every other target (spec §7, QA G9). Links inside sentences keep the
+   line's height. */
+:where(.hstack, .vstack, section, td, th, nav, .iss-usedin) > a:where(:not(.btn)),
+:where(li) > a:where(:only-child:not(.btn)),
+a:where(.mono, .extlink) {
+  /* :where keeps this at zero specificity, so any component's own display wins. */
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target);
+  min-width: var(--target);
+}
+
+:where(.vstack, section) > a:where(:not(.btn)) {
+  align-self: flex-start;
+}
+
+/* Status text: a glyph and words for markers that aren't §3 states ("Logged", "Changed"). */
+.status-text {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-sm);
+  color: var(--ink);
+}

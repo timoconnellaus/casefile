@@ -1,0 +1,103 @@
+/* Drafts list (W2-6): #/drafts and the left column of the Draft screen. */
+
+.drafts-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.drafts-item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px var(--sp-4);
+  color: var(--ink);
+  text-decoration: none;
+  border-radius: var(--r-sm);
+}
+
+.drafts-item:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.drafts-item[aria-current="page"] {
+  background: var(--raised);
+  box-shadow: inset 2px 0 0 var(--ink);
+}
+
+.drafts-title {
+  font-weight: 500;
+}
+
+.drafts-meta {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+.drafts-needs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.drafts-note {
+  font-size: var(--fs-body);
+  color: var(--muted);
+  line-height: var(--lh);
+  margin: 0;
+}
+
+.drafts-legal {
+  font-size: var(--fs-body);
+  color: var(--muted);
+  margin: 0;
+}
+
+.drafts-aside {
+  flex: 1 1 220px;
+  max-width: 260px;
+  gap: var(--sp-3);
+  padding: 14px var(--sp-2);
+}
+
+.drafts-aside > .hstack {
+  padding: 0 var(--sp-2);
+}
+
+.drafts-aside .drafts-note {
+  padding: 0 var(--sp-2);
+}
+
+.drafts-new {
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+  background: var(--panel-2);
+}
+
+.drafts-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+  max-width: 720px;
+}
+
+.drafts-page .drafts-list {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: var(--sp-1);
+}
+
+.drafts-new-section .drafts-new {
+  max-width: 480px;
+}
+
+.drafts-legal,
+.drafts-note {
+  overflow-wrap: anywhere;
+}

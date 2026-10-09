@@ -1,0 +1,599 @@
+/*
+ * People (W2-3): who's who list on the left, one entry's detail on the right (wb/People.dc.html).
+ * Colours come from tokens.css; entity hues come from the .ent-c0…c5 / .ent-ink / .ent-id classes.
+ */
+
+.people {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  min-height: 0;
+}
+
+/* ── the list ───────────────────────────────────────────── */
+.people-list {
+  flex: 1 1 320px;
+  max-width: 380px;
+  border-right: 1px solid var(--line);
+  padding: 14px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.people-list-head {
+  padding: 0 var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.people-list-title {
+  font-size: var(--fs-lg);
+}
+
+.people-list-total {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.people-search {
+  display: flex;
+  align-items: center;
+  background: var(--field);
+  border: 1px solid var(--control);
+  border-radius: var(--r-sm);
+  padding: 0 10px;
+  min-height: 36px;
+  cursor: text;
+}
+
+.people-search:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+input.people-search-input {
+  flex: 1;
+  width: 100%;
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+input.people-search-input:focus-visible {
+  outline: none;
+}
+
+.people-result {
+  font-size: var(--fs-md);
+  color: var(--muted);
+}
+
+.people-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.people-group {
+  display: flex;
+  flex-direction: column;
+}
+
+.people-group-title {
+  padding: 4px var(--sp-4);
+}
+
+.people-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.people-row,
+.people-row:hover {
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.people-row {
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr) auto max-content;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: 36px;
+  padding: 2px var(--sp-4);
+}
+
+.people-row:hover {
+  background: var(--hover);
+}
+
+.people-row:focus-visible {
+  outline-offset: -2px;
+}
+
+.people-row[aria-current="page"] {
+  background: var(--raised);
+  box-shadow: inset 2px 0 0 var(--ink);
+}
+
+.people-row-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.people-row-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.people-row-label.mono {
+  font-size: var(--fs-md);
+}
+
+.people-row-sub {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+.people-row .token {
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.people-row-docs {
+  font-size: var(--fs-sm);
+  text-align: right;
+}
+
+.people-none {
+  padding: 4px var(--sp-4);
+  font-size: var(--fs-md);
+}
+
+.people-pager {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 6px var(--sp-4);
+  font-size: var(--fs-md);
+}
+
+/* ── the detail ─────────────────────────────────────────── */
+.people-detail {
+  flex: 999 1 520px;
+  min-width: 0;
+  max-width: 880px;
+  padding: var(--sp-5) 28px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 26px;
+}
+
+.people-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.people-head h1 {
+  font-size: 24px;
+}
+
+.people-swatch {
+  width: 16px;
+  height: 16px;
+  border-radius: 8px;
+  flex: none;
+  background: var(--e);
+}
+
+.people-swatch.ent-ink,
+.people-swatch.ent-id {
+  background: transparent;
+  border: 2px solid var(--e);
+}
+
+.people-safety-tag {
+  gap: 5px;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--ink);
+  padding: 1px 8px;
+  border-radius: var(--r-sm);
+}
+
+.people-sec {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.people-help {
+  max-width: 640px;
+}
+
+.people-error:empty {
+  display: none;
+}
+
+.people-error {
+  color: var(--danger);
+}
+
+/* How Claude refers to them */
+.people-role-row {
+  gap: 10px;
+}
+
+.people-role-box {
+  display: flex;
+  align-items: center;
+  font-family: var(--font-mono);
+  color: var(--e);
+  background: var(--e-chip);
+  border: 1px solid var(--e-line);
+  border-radius: var(--r-sm);
+  padding: 0 10px;
+  min-height: 40px;
+}
+
+.people-role-box:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+input.people-role-input {
+  font-family: var(--font-mono);
+  background: transparent;
+  border: 0;
+  color: var(--e);
+  field-sizing: content;
+  min-width: 8ch;
+  max-width: 360px;
+  padding: 0 4px;
+}
+
+input.people-role-input:focus-visible {
+  outline: none;
+}
+
+/* Who they are to the case */
+.people-claude-reads .tag {
+  font-size: var(--fs-sm);
+  color: var(--ink);
+}
+
+.people-rel-row {
+  gap: 10px;
+}
+
+input.people-rel-input {
+  flex: 1 1 320px;
+  max-width: 520px;
+  min-height: 40px;
+  padding: 0 10px;
+}
+
+.people-checked {
+  gap: 6px;
+}
+
+/* Safety */
+.people-check {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  min-height: var(--target);
+}
+
+.people-check input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+}
+
+.people-check-help {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 30px;
+  max-width: 640px;
+}
+
+.people-check-help ul {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* Colour slots */
+.people-slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.people-slot {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--target-lg);
+  padding: 4px 12px 4px 8px;
+  border: 1px solid var(--control);
+  border-radius: var(--r-md);
+  font-size: var(--fs-md);
+}
+
+.people-slot input[type="radio"] {
+  /* The whole label is the target; the native radio stays for keyboard and screen readers. */
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  cursor: pointer;
+}
+
+.people-slot:has(input:checked) {
+  background: var(--raised);
+  border: 2px solid var(--ink);
+  padding: 3px 11px 3px 7px;
+}
+
+.people-slot:has(input:focus-visible) {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.people-slot.is-taken {
+  border-color: var(--line-2);
+  color: var(--muted);
+}
+
+.people-slot.is-taken input {
+  cursor: not-allowed;
+}
+
+.people-slot-swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 11px;
+  flex: none;
+  background: var(--e);
+}
+
+.people-slot.is-taken .people-slot-swatch {
+  opacity: 0.45;
+}
+
+.people-slot-swatch--ink {
+  background: transparent;
+  border: 2px solid var(--e);
+}
+
+.people-slot-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.people-slot-name {
+  font-weight: 500;
+}
+
+.people-slot-owner {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+/* Forms table */
+.people-forms-wrap {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  overflow-x: auto;
+}
+
+.people-forms {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-md);
+}
+
+.people-forms thead tr {
+  background: var(--panel-2);
+  color: var(--muted);
+  text-align: left;
+}
+
+.people-forms th,
+.people-forms td {
+  padding: 6px 14px;
+  text-align: left;
+}
+
+.people-forms thead th {
+  padding: 10px 14px;
+  font-weight: 500;
+}
+
+.people-forms tbody tr {
+  border-top: 1px solid var(--line);
+}
+
+.people-forms tbody th {
+  font-weight: 400;
+}
+
+.people-forms-form {
+  width: 160px;
+}
+
+.people-forms-tok {
+  width: 200px;
+}
+
+input.people-form-input {
+  width: 100%;
+}
+
+/* Other names */
+.people-alias-row {
+  gap: var(--sp-2);
+}
+
+.people-aliases {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.people-alias {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--control);
+  border-radius: var(--r-sm);
+  padding: 2px 4px 2px 10px;
+}
+
+.people-alias .ent {
+  cursor: default;
+}
+
+.btn.people-alias-x {
+  width: var(--target);
+  min-height: var(--target);
+  padding: 0;
+  justify-content: center;
+}
+
+input.people-alias-input {
+  min-height: 36px;
+  width: 240px;
+}
+
+.people-alias-panel:empty {
+  display: none;
+}
+
+.people-alias-panel {
+  max-width: 760px;
+}
+
+/* Where they appear */
+.people-where-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.people-where-group > h3,
+.people-where-list {
+  align-self: stretch;
+}
+
+.people-where-n {
+  font-weight: 400;
+  color: var(--muted);
+}
+
+.people-where-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+}
+
+.people-where-list li + li {
+  border-top: 1px solid var(--line);
+}
+
+.people-where-row,
+.people-where-row:hover {
+  text-decoration: none;
+  color: var(--ink);
+}
+
+.people-where-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-height: 40px;
+  padding: 4px 14px;
+}
+
+.people-where-row:hover {
+  background: var(--hover);
+}
+
+.people-where-row:focus-visible {
+  outline-offset: -2px;
+}
+
+.people-where-row--doc {
+  grid-template-columns: 56px minmax(0, 1fr) auto;
+}
+
+.people-where-row--date {
+  grid-template-columns: 104px minmax(0, 1fr);
+}
+
+.people-where-row--draft {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.people-where-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.people-merge-hint {
+  color: var(--muted);
+  max-width: 640px;
+}
+
+/* The shell moves focus to the h1 on navigation; it is not a control, so no ring. */
+.people-head h1:focus {
+  outline: none;
+}
+
+/* Link suggestions (unlinked details whose label reads as someone's). */
+.people-suggest:empty {
+  display: none;
+}
+
+.people-suggest {
+  margin: var(--sp-3) var(--sp-4) 0;
+}
+
+.people-suggest-list {
+  list-style: none;
+  margin: var(--sp-2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.people-suggest-row {
+  flex-wrap: wrap;
+}

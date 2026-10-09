@@ -1,0 +1,338 @@
+/* Chronology (W2-4). Colours come from tokens.css only. */
+
+.chrono {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.chrono-head h1 {
+  margin: 0;
+  font-size: var(--fs-h1);
+  font-weight: 600;
+}
+
+.chrono-status {
+  padding-top: 0;
+}
+
+.chrono-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 10px var(--sp-3);
+  padding: 0 var(--sp-5) var(--sp-3);
+  border-bottom: 1px solid var(--line);
+}
+
+.chrono-fld {
+  min-width: 0;
+}
+
+.chrono-fld label {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+.chrono-fld select,
+.chrono-fld input {
+  min-height: var(--target);
+  font-size: var(--fs-md);
+}
+
+.chrono-years {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-1);
+  font-size: var(--fs-md);
+}
+
+.chrono-years .btn-link {
+  min-height: var(--target);
+  padding: 0 6px;
+}
+
+.chrono-key {
+  border-bottom: 1px solid var(--line);
+}
+
+.chrono-box {
+  margin: var(--sp-3) var(--sp-5) 0;
+  border: 1px solid var(--control);
+  border-radius: var(--r-lg);
+  background: var(--panel-2);
+  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  max-width: 880px;
+}
+
+.chrono-box p {
+  margin: 0;
+}
+
+.chrono-box-title {
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: 600;
+}
+
+.chrono-form-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+}
+
+/* ── list + panel ─────────────────────────────────────── */
+.chrono-cols {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  min-height: 0;
+}
+
+.chrono-list {
+  flex: 999 1 560px;
+  min-width: 0;
+  padding-bottom: var(--sp-5);
+}
+
+.chrono-result {
+  margin: 0;
+  padding: var(--sp-3) var(--sp-5) 0;
+  font-size: var(--fs-md);
+}
+
+.chrono-groups .empty {
+  margin: var(--sp-6) var(--sp-5);
+}
+
+.chrono-year {
+  margin: 0;
+  padding: var(--sp-4) var(--sp-5) 6px;
+  font-size: var(--fs-sm);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.chrono-year:focus {
+  outline: none;
+}
+
+.chrono-year:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.chrono-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.chrono-row {
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  border-top: 1px solid var(--line-soft);
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr) auto;
+  gap: var(--sp-1) 14px;
+  padding: 11px var(--sp-5);
+  align-items: start;
+}
+
+.chrono-row:hover {
+  background: var(--panel-2);
+}
+
+.chrono-row.is-selected-row {
+  background: var(--raised);
+  box-shadow: inset 2px 0 0 var(--ink);
+}
+
+.chrono-row:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: -2px;
+}
+
+.chrono-when {
+  font-size: var(--fs-md);
+  color: var(--muted);
+  padding-top: 1px;
+}
+
+.chrono-what {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.chrono-meta {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-1) 10px;
+  align-items: center;
+}
+
+.chrono-hint {
+  margin: var(--sp-4) var(--sp-5) 0;
+}
+
+/* Removed items */
+.chrono-removed-title {
+  margin: 0;
+  padding: var(--sp-4) var(--sp-5) 0;
+  font-size: var(--fs-h2);
+  font-weight: 600;
+}
+
+.chrono-removed-title:focus {
+  outline: none;
+}
+
+.chrono-removed-row {
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr) auto;
+  gap: var(--sp-1) 14px;
+  padding: 11px var(--sp-5);
+  border-top: 1px solid var(--line-soft);
+  align-items: start;
+}
+
+.chrono-usedin {
+  margin-top: var(--sp-1);
+}
+
+.chrono-usedin-list {
+  margin: 0;
+  padding-left: 18px;
+}
+
+/* ── the checking panel ───────────────────────────────── */
+.chrono-panel {
+  flex: 1 1 400px;
+  max-width: 520px;
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+  padding: 18px var(--sp-5) 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.chrono-panel[hidden] {
+  display: none;
+}
+
+.chrono-panel h3 {
+  margin: 0;
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+
+.chrono-panel-title {
+  margin: 0;
+  font-size: var(--fs-h2);
+  font-weight: 600;
+}
+
+.chrono-claim {
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: 500;
+  line-height: 1.55;
+}
+
+.chrono-panel .callout p {
+  margin: 0;
+}
+
+.chrono-legend {
+  margin-bottom: var(--sp-2);
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+
+.chrono-tick {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: var(--sp-2);
+  align-items: start;
+  padding: var(--sp-2) 10px;
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-md);
+}
+
+.chrono-tick input {
+  margin-top: 2px;
+}
+
+.chrono-tick-hint {
+  display: block;
+  font-size: var(--fs-md);
+  color: var(--muted);
+}
+
+.chrono-helper {
+  margin: 0;
+  font-size: var(--fs-body);
+  color: var(--ink);
+}
+
+.chrono-guidance {
+  margin: 0;
+  font-size: var(--fs-body);
+  color: var(--muted);
+}
+
+.chrono-note.is-done {
+  opacity: 0.85;
+}
+
+@media (max-width: 720px) {
+  .chrono-row,
+  .chrono-removed-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .chrono-panel {
+    max-width: none;
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+}
+
+.chrono-filters .chrono-fld {
+  flex: 0 1 auto;
+}
+
+.chrono-fld select {
+  max-width: 260px;
+}
+
+/* Export for Word (W3-1): the two scope options. */
+.chrono-export-opt {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  min-height: var(--target);
+  cursor: pointer;
+}
+
+.chrono-export-opt input {
+  margin-top: 0.2em;
+}

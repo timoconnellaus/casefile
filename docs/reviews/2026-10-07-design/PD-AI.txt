@@ -1,0 +1,190 @@
+1. Introduction
+
+1.1 This Practice Direction applies to all proceedings in the Federal Circuit and Family Court of Australia (Division 1) and the Federal Circuit and Family Court of Australia (Division 2).
+
+1.2 This Practice Direction outlines the principles and responsibilities for using artificial intelligence (AI), including generative AI (GenAI) in the Courts. It is intended to promote responsible AI practices that maintain confidence in the Courts.
+
+1.3 This Practice Direction is to be read in conjunction with the Federal Circuit and Family Court of Australia Act 2021 (Cth) (FCFCOA Act), the Rules of Court, and any other legislation applicable to the Courts or its jurisdictions.
+
+1.4 This Practice Direction applies to litigants (including self-represented litigants), lawyers, experts and all other court users (collectively, court users).
+
+1.5 AI and GenAI are developing rapidly. The Courts’ approach to its responsible use will be reviewed regularly and this Practice Direction may change over time. Court users are responsible for keeping up to date on its requirements.
+
+1.6 Artificial intelligence is increasingly embedded in commonly used software and services, including drafting tools, search functions, transcription, document management systems and other assistive functions. Court users’ obligations under this Practice Direction apply regardless of whether a product is expressly described as AI, GenAI, smart, assistive or similar.
+
+2. Definitions
+
+2.1 The following definitions1 are used in this Practice Direction:
+
+Artificial intelligence (AI) a system able to perform a task that would otherwise require human intelligence.
+
+Closed AI an AI tool not generally accessible to the public which by reason of licencing conditions or terms of service contains controls for the use of information, and protections from information being made public or being used to train the AI tool.
+
+Generative artificial intelligence (GenAI) a subset of AI that refers to a system that enables the user to generate new content such as text, images, sound and code, in response to a question or instructions (a prompt).
+
+Generative AI Chatbot or tool (GenAI Chatbot or GenAI tool) a conversational agent that understands human language, and uses GenAI to simulate a conversation, including computer programs such as ChatGPT, Google Gemini, Claude and Microsoft Copilot.
+
+Public AI an AI tool that is publicly available via the internet, operating in an open rather than closed environment, without controls as to the use or further dissemination of information. Public AI tools are trained on broad, often public datasets, most commonly for general purpose use.
+
+3. General principles
+
+3.1 Lawyers are required to maintain their professional duties and obligations when using AI, including as to matters such as:
+
+their paramount duty to the court and the administration of justice, as well as the duty to act honestly, competently and with integrity;
+
+the confidentiality of client information; and
+
+only invoking the power of a court where it is reasonably justified on the material available and only alleging facts that have a proper basis.
+
+3.2 When using AI and especially GenAI, all court users must act in accordance with the objects, overarching purpose, rules and practice and procedure of the Courts. This includes, but is not limited to:
+
+the overarching purpose to facilitate the just resolution of disputes according to law, and as quickly, inexpensively and efficiently as possible, in a timely way and at a proportionate cost to the issues in dispute;2 and
+
+in family law proceedings, in a way that also ensures the safety of families and children, and in a way that promotes the best interests of the child.3
+
+3.3 In using AI and in particular, GenAI, court users must act responsibly and in accordance with the following general principles:
+
+Integrity – court users must only use AI in a way that is consistent with maintaining the integrity of courts, and the important principles of fairness, accuracy, truth, proportionality and equality before the law.
+
+Accountability – court users are accountable for the extent to which they choose to use AI, and the tools or systems they choose to use. Court users should be prepared to account to the Courts, if requested, about the way in which they have used AI, and provide evidence that it has been used responsibly, lawfully and in accordance with their obligations to the Courts.
+
+Accuracy – court users must ensure that all information they rely on in court proceedings is accurate (see 4.4 to 4.7 below).
+
+Confidentiality and data security – court users must maintain confidentiality of information where that is required (for example by legislation, order of a court or other duty) and understand the risks that use of AI can pose to the confidentiality of sensitive information (see Part 5 below).
+
+Safety – court users must not use AI if there is a risk it will compromise the safety of any other court user or child. This could include inputting information into a GenAI tool where confidentiality is not assured, and if disclosed, could impact a person’s safety (such as the disclosure of a protected residential address or medical records).
+
+Education and understanding – like any tool or system, responsible use of AI requires awareness and education. Lawyers should undertake professional education on AI commensurate with the extent they intend to incorporate it into their practice. Court users must understand the strengths, weaknesses, risks and limitations of AI and especially GenAI before using it. The Courts will not accept a lack of understanding as justification for inadvertence in the use of AI.
+
+3.4 The Courts acknowledge that the use of AI in accordance with these principles can have significant benefits for efficiency and access to justice, including reducing costs and enabling court users to participate effectively in court proceedings.
+
+4. Responsibilities of all court users
+
+4.1 The judiciary is responsible for the integrity of the administration of justice and court processes. Judicial officers perform an important role in safeguarding that integrity by regulating the material that is put before each Court. 
+
+4.2 Court users also have an important role to play in ensuring that courts remain trusted institutions and proceedings are conducted in a way that maintains confidence in the process and the evidence relied upon.
+
+4.3 Consistent with the obligations of court users referred to in Part 3 above, it is the expectation of the Courts that those court users that choose to use AI, do so in accordance with the following responsibilities:
+
+Taking responsibility for the accuracy and authenticity of information
+
+4.4 Court users have a fundamental duty not to mislead the Court, or the other parties and lawyers involved in the proceeding. GenAI has limitations, and may produce content that is believable, but inaccurate, wrong or misleading.
+
+4.5 While it is expected that over time, GenAI tools and products will become more sophisticated, court users are encouraged to think critically when using GenAI tools and must verify the output produced. Court users must not assume that a tool is accurate or reliable because it is paid, commercial, private or accessed through a closed environment.
+
+4.6 Further to 4.4, if court users choose to use GenAI tools to assist in preparing material for proceedings, they should first assess whether the output produced by the GenAI tool is suitable for use in the specific case. Court users must then ensure that the content/output has the following characteristics:
+
+it is accurate, relevant and current (including that it does not rely on outdated legislation or authorities);
+
+it is authentic (for example in relation to images, video, sound recordings or other media court users must not modify, enhance or fabricate the media using a GenAI tool);
+
+it is concise, complies with any rules regarding the length of documents, as well as the overarching purpose for litigation to be conducted inexpensively and efficiently;
+
+it does not infringe any obligation to maintain the confidentiality, security or privacy of the input or output information (for more detail see Part 5 below).
+
+4.7 To meet these requirements, court users must do the following:
+
+fact-check and proof-read any content produced by GenAI (and not only rely on GenAI to do these tasks);
+
+edit and adapt (where necessary) any content produced by GenAI to suit the specific situation. For example, legislation or case law from a country other than Australia is unlikely to be relevant to a proceeding before the Courts;
+
+verify that any reference to case law, legislation, textbooks or articles in content produced by GenAI exists and stands for the legal principles that is attributed to it. If the content produced by GenAI includes extracts or quotes, court users must verify that they are accurate. Reliable sources include the Australasian Legal Information Institute – www.austlii.edu.au, and the Federal Register of Legislation or State or Territory equivalent;
+
+use a NAATI certified translator or interpreter to prepare material to be used in court proceedings where it is in a language other than English.
+
+Being accountable for the use of GenAI
+
+4.8 Court users are responsible for the content of documents filed by them and relied upon in a proceeding. Where a court user signs a document, provides a certification and/or files a document with the Court, this indicates to the Court that the document is considered by those preparing it to be accurate, appropriate and complete, and to comply with the law and obligations contained in this Practice Direction.
+
+4.9 Court users must exercise caution if using GenAI to assist in the preparation of affidavit material or other documents which purport to express the evidence or opinion of a witness. A party in proceedings must ensure that the content of any affidavit is based on the witness’s own knowledge, experience or opinion expressed in the witness’s own words.
+
+4.10 Similar considerations arise in the case of expert reports or opinions which must comply with this Practice Direction as well as any requirements for expert witnesses. Lawyers engaging a private expert witness must provide them with a copy of this Practice Direction and ensure that the expert certifies that it has been read.
+
+4.11 There is no requirement for a court user, other than an expert witness, to disclose by way of statement, certification or otherwise the use of GenAI in the preparation of a document filed or relied on in a proceeding, unless requested to do so. However, the person responsible for its creation, or with responsibility for the file (if this person is different) should be able to explain, if asked:
+
+whether AI was used;
+
+what tool was used;
+
+how the output was checked and supervised;
+
+how the principles in this Practice Direction have been observed.
+
+4.12 Where an issue in dispute in the proceedings involves an allegation about the use of GenAI, parties and lawyers are expected to take the same genuine steps to resolve that issue as they would in the conduct of litigation generally.
+
+4.13 An allegation of the improper use of GenAI should be brought to the attention of the presiding judicial officer if it has the potential to undermine the integrity of the proceeding, for example because it has produced content that is alleged to be false or misleading.
+
+4.14 Court users, but lawyers in particular, should bear in mind that while GenAI can deliver significant gains in efficiency, not all court users will have access to, or the ability to engage with the technology. To the extent possible, lawyers should take steps to address any disadvantage this might produce. For example, a party with access to a GenAI tool appropriate for undertaking a task efficiently, should offer to do so, where the other party would have to do it in a highly manualised way (such as producing a draft of a joint chronology).
+
+Understanding the technology that is being used – its benefits, limits and risks
+
+4.15 When used responsibly, GenAI tools can assist court users to be more efficient. However, like any resource or technology, court users who use GenAI should educate themselves about its proper use, its limitations and its risks.
+
+4.16 GenAI systems are based on probabilities, and do not possess qualities such as empathy, self-awareness or an understanding of social context in the way that humans can. GenAI systems can produce content that, because they reflect a particular data set, can be affected by systemic biases.
+
+4.17 The provision of legal advice, including as to the strengths or weaknesses of a legal claim, is the role of a lawyer and is subject to strict statutory and professional duties and obligations. Any court user who uses GenAI for the purposes of legal research assumes responsibility and is accountable for the authenticity and accuracy of any content produced to the Court.
+
+4.18 Court users should be aware of the measures (if any) taken by the GenAI system to protect the security, privacy and confidentiality of data inputs and outputs. Court users should examine the terms of service of each GenAI tool, noting data use practices are different between GenAI systems, and between tiers of the same GenAI system.
+
+4.19 Court users should be aware that uploading information to a GenAI tool could breach one or more of the obligations in Part 5 unless they are satisfied that the system has appropriate safeguards in place, supported by its terms of service, that protect the security of the information and restrict its future use and disclosure.
+
+4.20 Court users must not use an AI tool in a way which has the effect of perpetrating any form of:
+
+family violence, as defined in section 4AB of the Family Law Act; or
+
+litigation abuse, which means the use of processes, documents and images that is frivolous, vexatious, oppressive, harmful, misleading, or which has the effect of harassing, delaying, or improperly burdening another court user or the Court, rather than genuinely advancing the resolution of the dispute.
+
+4.21 The Court has broad discretionary powers to respond to instances of inappropriate use of GenAI which may include disregarding material placed before the Court, an order for costs or other penalty, or referral to a regulatory body.
+
+5. Protection of confidential or sensitive information
+
+5.1 A GenAI tool has the capacity to retain information entered into it and store every question asked of it. It could then use that information to respond to enquiries from other users and give them access to the information. As a result, information entered into a GenAI tool could become publicly known and amount to a breach of suppression orders or statutory prohibitions on publication, or disclose private, confidential or sensitive information that may cause serious harm (breach).
+
+5.2 In family law proceedings, the risk of a breach is particularly concerning because it is an indictable offence to communicate to the public an account of the proceedings (or a court list) which identifies a party, witness or person related to or associated with the party or matter, including a child.4 It may also impact the safety of a court user or child.
+
+5.3 In migration proceedings, a breach could have serious consequences for applicants to judicial review of protection visa related decisions, noting the Court has an obligation to maintain the confidentiality of the identity of those applicants.5
+
+5.4 Court users must:
+
+comply with confidentiality orders and laws, personal data protection laws, intellectual property laws and legal privilege when using GenAI tools;
+
+disable the chat history and web search access in GenAI Chatbots if this option is available to reduce the risk of breaches; and
+
+refrain from including confidential or sensitive information if a public GenAI tool is used, because it may become public or stored or used for unrelated purposes.
+
+Prohibition
+
+5.5 Information obtained through a court order for production, disclosure or discovery, information subject to a non-publication or suppression order, documents produced on subpoena, or any information subject to a statutory, court ordered or implied prohibition relating to its publication or use outside the proceedings must not be entered into any GenAI tool, unless:
+
+the court user is satisfied that the information will remain within the closed environment of the platform being used, not accessible by unauthorised third parties, and that the platform is the subject of enforceable confidentiality restrictions on the supplier of the technology to ensure that the data is not made publicly available;
+
+it is not used to train any large language models; and
+
+the information is used only in connection with the proceeding to which it relates.
+
+This type of assurance may not be available with many GenAI tools and court users must exercise caution in considering any use of GenAI for confidential or sensitive information.
+
+5.6 The rules of court also contain a prohibition on the use of recording and transcription devices by court users in court proceedings, which includes the use of any GenAI tool.
+
+Copyright and intellectual property rights
+
+5.7 The use of GenAI may raise copyright issues. Compliance with the law of copyright is the responsibility of court users.
+
+5.8 Court users must respect intellectual property rights in the documents that they file or submit. This includes ensuring that they contain a reference to the original source of any material that they use.
+
+The Honourable Justice William Alstergren
+Chief Justice – Federal Circuit and Family Court of Australia (Division 1)
+Chief Judge – Federal Circuit and Family Court of Australia (Division 2)
+Issued: 29 May 2026
+
+Footnotes
+
+1 These definitions have been drawn from various sources, including: the Australian Government Digital Transformation Agency, the OECD Artificial Intelligence Papers, and Guidelines issued by the Queensland Courts (accessed January 2026).
+
+2 ss 67-68 and 190-191 of the FCFCOA Act.
+
+3 ss 95-96 of the Family Law Act 1975 (Cth) (Family Law Act).
+
+4 Part XIVB of the Family Law Act.
+
+5 s 91X of the Migration Act 1958 (Cth).

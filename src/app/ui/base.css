@@ -1,0 +1,283 @@
+/*
+ * Base styles: reset, type, links, focus, form controls, layout helpers (ADR 0020).
+ * Uses tokens.css only. No inline styles anywhere: the CSP is style-src 'self'.
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  font-size: var(--fs-body);
+  line-height: var(--lh);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  min-height: 100vh;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  line-height: 1.3;
+}
+
+h1 {
+  font-size: var(--fs-h1);
+  font-weight: 600;
+}
+
+h2 {
+  font-size: var(--fs-xl);
+  font-weight: 600;
+}
+
+h3 {
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+a:hover {
+  color: var(--link-hover);
+}
+
+/* Every interactive element gets the same visible focus (spec §1). */
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+::selection {
+  background: #3a4552;
+}
+
+code,
+kbd,
+samp,
+pre {
+  font-family: var(--font-mono);
+}
+
+code {
+  font-size: 0.93em;
+}
+
+kbd,
+.kbd {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--muted);
+  border: 1px solid var(--control);
+  border-radius: var(--r-xs);
+  padding: 0 4px;
+  line-height: 1.4;
+}
+
+hr {
+  border: 0;
+  border-top: 1px solid var(--line);
+  margin: var(--sp-4) 0;
+}
+
+/* ── form controls ──────────────────────────────────────── */
+button,
+input,
+select,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+input:where(:not([type="checkbox"], [type="radio"], [type="range"])),
+select,
+textarea {
+  min-height: var(--target);
+  padding: 0 8px;
+  background: var(--bg);
+  border: 1px solid var(--control);
+  border-radius: var(--r-sm);
+  color: var(--ink);
+}
+
+textarea {
+  padding: 8px;
+  min-height: 7rem;
+  resize: vertical;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--faint);
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--ink);
+  flex: none;
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  color: var(--muted);
+  border-color: var(--line-2);
+}
+
+fieldset {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+
+legend {
+  padding: 0;
+}
+
+label {
+  cursor: pointer;
+}
+
+/* ── text helpers ───────────────────────────────────────── */
+.sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.mono {
+  font-family: var(--font-mono);
+}
+
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.faint {
+  color: var(--faint);
+}
+
+.small {
+  font-size: var(--fs-md);
+}
+
+.tiny {
+  font-size: var(--fs-sm);
+}
+
+.strong {
+  font-weight: 600;
+}
+
+.eyebrow {
+  margin: 0;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.attn-text {
+  color: var(--attn);
+}
+
+.danger-text {
+  color: var(--danger);
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+.wrap-anywhere {
+  overflow-wrap: anywhere;
+}
+
+/* ── layout helpers ─────────────────────────────────────── */
+.hstack {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.hstack.gap-lg {
+  gap: var(--sp-3);
+}
+
+.hstack.nowrap {
+  flex-wrap: nowrap;
+}
+
+.hstack.end {
+  justify-content: flex-end;
+}
+
+.hstack.between {
+  justify-content: space-between;
+}
+
+.vstack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.vstack.gap-sm {
+  gap: var(--sp-1);
+}
+
+.vstack.gap-lg {
+  gap: var(--sp-4);
+}
+
+.grow {
+  flex: 1;
+}
+
+.spacer {
+  flex: 1;
+}
+
+[hidden] {
+  display: none !important;
+}

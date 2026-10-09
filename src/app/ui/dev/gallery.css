@@ -1,0 +1,68 @@
+/* Gallery page layout only. */
+.gal-main {
+  padding: var(--sp-6) var(--sp-5) 80px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  max-width: 1280px;
+}
+
+.gal-section {
+  border-top: 1px solid var(--line);
+  padding-top: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.gal-title {
+  font-size: var(--fs-h2);
+}
+
+.gal-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+.gal-row {
+  gap: var(--sp-2) var(--sp-3);
+}
+
+.gal-label {
+  width: 48px;
+  color: var(--muted);
+}
+
+.gal-linked {
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  overflow-x: auto;
+}
+
+.gal-doc {
+  padding: 0 0 var(--sp-4);
+}
+
+.gal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: var(--sp-6);
+}
+
+.gal-claim {
+  font-size: var(--fs-xl);
+  font-weight: 500;
+}
+
+.gal-fields {
+  align-items: flex-end;
+}
+
+.gal-icon {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 56px;
+}

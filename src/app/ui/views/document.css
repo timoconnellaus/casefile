@@ -1,0 +1,180 @@
+/* Document view (W2-2; wb/Document.dc.html). */
+
+.doc-head h1 {
+  font-size: var(--fs-h1);
+}
+
+.doc-crumb {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--fs-md);
+  color: var(--muted);
+}
+
+.doc-confirm:not(:empty),
+.doc-callouts:not(:empty) {
+  padding: var(--sp-3) var(--sp-5) 0;
+}
+
+.doc-columns {
+  align-items: stretch;
+}
+
+.doc-main {
+  padding: var(--sp-4) var(--sp-5) var(--sp-6);
+  overflow-x: auto;
+}
+
+.doc-side {
+  flex: 1 1 320px;
+  max-width: 400px;
+}
+
+.doc-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.doc-section + .doc-section {
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--line);
+}
+
+.doc-section-title {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+}
+
+.doc-section-title:focus {
+  outline: none;
+}
+
+.doc-subtitle {
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+
+.doc-origin {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: var(--target);
+  padding: 6px var(--sp-2);
+  border-radius: var(--r-sm);
+}
+
+.doc-origin input {
+  margin-top: 2px;
+}
+
+.doc-origin:has(input:checked) {
+  background: var(--raised);
+  box-shadow: inset 2px 0 0 var(--ink);
+}
+
+.doc-origin-text {
+  gap: 0;
+}
+
+.doc-notasked {
+  color: var(--attn);
+}
+
+.doc-guidance {
+  font-size: var(--fs-body);
+}
+
+.doc-impact {
+  margin: 0;
+  padding-left: 18px;
+}
+
+.doc-details {
+  display: grid;
+  gap: var(--sp-2);
+}
+
+.doc-details input {
+  width: 100%;
+}
+
+.doc-tags {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px var(--sp-2);
+}
+
+.doc-tags li {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.doc-tag-rm {
+  font-size: var(--fs-sm);
+  padding: 0 6px;
+}
+
+.doc-cited-list,
+.doc-activity {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.doc-cited {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px var(--sp-2);
+  border-radius: var(--r-sm);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+a.doc-cited:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+a.doc-cited .doc-cited-title {
+  color: var(--link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.doc-cited-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px var(--sp-2);
+  font-size: var(--fs-sm);
+}
+
+.doc-activity li {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  font-size: var(--fs-md);
+  padding: 4px 0;
+}
+
+.doc-range .field {
+  flex: 1;
+}
+
+.doc-origin-confirm .confirmbar {
+  padding: var(--sp-3);
+}
+
+.doc-origin-confirm .confirmbar-text {
+  flex-basis: 100%;
+}

@@ -1,0 +1,132 @@
+/*
+ * casefile design tokens (DESIGN-SPEC §1 and §4, ADR 0020).
+ *
+ * Dark only. Every colour the UI uses is named here; components refer to these variables and
+ * never to raw hex values. model.js keeps a copy of the text/ground pairs so the contrast test
+ * (tests/ui_model_test.ts) can check them; keep the two in step.
+ *
+ * Fonts are bundled (ui/fonts, SIL OFL 1.1) because the CSP allows styles and fonts from 'self'
+ * only.
+ */
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/IBMPlexSans-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/IBMPlexSans-Medium.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "IBM Plex Sans";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("/fonts/IBMPlexSans-SemiBold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("/fonts/IBMPlexMono-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "IBM Plex Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("/fonts/IBMPlexMono-Medium.woff2") format("woff2");
+}
+
+:root {
+  color-scheme: dark;
+
+  /* ── grounds and surfaces ─────────────────────────────── */
+  --bg: #121518; /* page ground, inputs, code wells */
+  --bg-deep: #0e1113; /* recessed areas */
+  --panel: #15191c; /* side panels */
+  --panel-2: #171b1f; /* header, table heads */
+  --hover: #1c2126; /* hover on rows and quiet buttons */
+  --field: #1f2428; /* header search field */
+  --confirm: #1a1e22; /* ConfirmBar */
+  --raised: #222830; /* selected row/item, pressed segment */
+
+  /* ── lines ─────────────────────────────────────────────── */
+  --line: #262b30; /* panel borders, dividers */
+  --line-2: #2f353b; /* card borders, inner dividers */
+  --line-soft: #1c2126; /* row separators */
+  --control: #626a72; /* control borders: spec #5A626A is 2.96:1, this is ≥3:1 on every ground (ADR 0020) */
+
+  /* ── text ──────────────────────────────────────────────── */
+  --ink: #e3e6e9; /* body text */
+  --muted: #a7afb7; /* the minimum for readable text */
+  --faint: #8e979f; /* line numbers and placeholders only */
+  --link: #b7dbf2;
+  --link-hover: #d6ecf9;
+
+  /* ── actions ───────────────────────────────────────────── */
+  --primary-bg: #e3e6e9;
+  --primary-ink: #121518;
+  --disabled-bg: #2f353b;
+  --focus: #ffd27a;
+
+  /* ── status: only two hues (attention, danger) ─────────── */
+  --attn: #e8a33d;
+  --attn-bg: #2a2418;
+  --attn-line: #5a4114;
+  --danger: #f4867a;
+  --danger-bg: #3a1a17;
+  --danger-line: #6b2a24;
+
+  /* ── entity colour (§4): six slots for parties and children ── */
+  --ent-c0: #ffaabb; /* mother */
+  --ent-c1: #77aadd; /* father */
+  --ent-c2: #44bb99; /* child_1 */
+  --ent-c3: #bbcc33; /* child_2 */
+  --ent-c4: #99ddff; /* spare */
+  --ent-c5: #eedd88; /* spare */
+  --ent-ink: #d5dae0; /* everyone and everything else */
+  --ent-id: #c3cad1; /* numbers, dates, addresses */
+
+  /* ── type ──────────────────────────────────────────────── */
+  --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-md: 13px;
+  --fs-body: 14px;
+  --fs-lg: 15px;
+  --fs-xl: 16px;
+  --fs-h2: 17px;
+  --fs-h1: 20px;
+  --lh: 1.5;
+  --lh-text: 1.85; /* document lines */
+
+  /* ── shape and space ───────────────────────────────────── */
+  --r-xs: 3px;
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 8px;
+  --r-pill: 16px;
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 20px;
+  --sp-6: 24px;
+  --target: 32px; /* minimum target */
+  --target-lg: 44px; /* primary actions */
+  --shadow: 0 6px 20px rgba(0, 0, 0, 0.45);
+  --dim: 0.6; /* others dim to 60% while a name is linked, never lower */
+}

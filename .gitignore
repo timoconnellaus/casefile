@@ -1,0 +1,18 @@
+# Case data must never be committed
+*.casefile/
+cases/
+vault.enc
+public.db*
+*.sqlite
+.env
+.DS_Store
+
+# Build output (deno task build:cli, deno task desktop)
+bin/
+dist/
+
+# deno task dev / seed:dev (synthetic CANON case and its config)
+.dev/
+
+# Written by deno task release in the checkout in daily use (ADR 22)
+release.json

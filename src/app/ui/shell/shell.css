@@ -1,0 +1,265 @@
+/* App shell: AppHeader, ⌘K palette, skip link, boot message (ADR 0020). */
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.boot {
+  padding: var(--sp-6);
+  color: var(--muted);
+}
+
+.update-note {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-4);
+  padding: var(--sp-2) var(--sp-4);
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-2);
+  color: var(--ink);
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--sp-2);
+  top: -60px;
+  z-index: 30;
+  background: var(--primary-bg);
+  color: var(--primary-ink);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-sm);
+  font-weight: 600;
+}
+
+.skip-link:focus {
+  top: var(--sp-2);
+  color: var(--primary-ink);
+}
+
+/* ── AppHeader ──────────────────────────────────────────── */
+.appheader {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px var(--sp-4);
+  padding: var(--sp-2) var(--sp-4);
+  border-bottom: 1px solid var(--line);
+  background: var(--panel-2);
+}
+
+.appheader-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.brand,
+.brand:hover {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--target);
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: var(--fs-lg);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.dev-mark {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 0 6px;
+}
+
+.case-name {
+  font-size: var(--fs-md);
+  color: var(--muted);
+}
+
+.appnav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.nav-link,
+.nav-link:hover {
+  text-decoration: none;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--target);
+  padding: 0 10px;
+  border-radius: var(--r-sm);
+}
+
+.nav-link:hover {
+  color: var(--ink);
+  background: var(--hover);
+}
+
+.nav-link[aria-current="page"] {
+  color: var(--ink);
+  background: var(--raised);
+  box-shadow: inset 2px 0 0 var(--ink);
+}
+
+.nav-count {
+  font-size: var(--fs-sm);
+  color: var(--attn);
+}
+
+.nav-count--zero {
+  color: var(--muted);
+}
+
+.appsearch {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  background: var(--field);
+  border: 1px solid var(--control);
+  border-radius: var(--r-sm);
+  padding: 0 var(--sp-2) 0 10px;
+  min-height: var(--target);
+  color: var(--muted);
+  cursor: text;
+}
+
+.appsearch:focus-within {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+input.appsearch-input {
+  background: transparent;
+  border: 0;
+  min-height: var(--target);
+  padding: 0;
+  width: 180px;
+  color: var(--ink);
+}
+
+input.appsearch-input:focus-visible {
+  outline: none;
+}
+
+.idle-note {
+  font-size: var(--fs-sm);
+  color: var(--muted);
+}
+
+/* ── ⌘K palette ─────────────────────────────────────────── */
+.palette {
+  width: min(720px, calc(100vw - 32px));
+  max-height: min(640px, calc(100vh - 80px));
+  margin-top: 10vh;
+  padding: 0;
+  border: 1px solid var(--control);
+  border-radius: var(--r-lg);
+  background: var(--panel-2);
+  color: var(--ink);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+}
+
+.palette[open] {
+  display: flex;
+  flex-direction: column;
+}
+
+.palette::backdrop {
+  background: rgba(8, 10, 12, 0.7);
+}
+
+.palette-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: var(--sp-2) var(--sp-3);
+  border-bottom: 1px solid var(--line);
+  color: var(--muted);
+}
+
+input.palette-input {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  font-size: var(--fs-xl);
+  min-height: var(--target-lg);
+  padding: 0;
+}
+
+input.palette-input:focus-visible {
+  outline: none;
+}
+
+input.palette-input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.palette-status {
+  padding: var(--sp-2) var(--sp-4);
+  font-size: var(--fs-md);
+}
+
+.palette-results {
+  overflow-y: auto;
+  padding-bottom: var(--sp-2);
+}
+
+.palette-group-head {
+  padding: var(--sp-2) var(--sp-4) var(--sp-1);
+}
+
+.palette-option {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: var(--sp-3);
+  padding: 6px var(--sp-4);
+  cursor: pointer;
+  font-size: var(--fs-md);
+}
+
+.palette-option[aria-selected="true"] {
+  background: var(--raised);
+  box-shadow: inset 2px 0 0 var(--ink);
+}
+
+.palette-title {
+  color: var(--muted);
+}
+
+.palette-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@media (max-width: 700px) {
+  .idle-note {
+    display: none;
+  }
+
+  input.appsearch-input {
+    width: 120px;
+  }
+}
+
+/* Narrow screens: the header wraps onto several rows, so it scrolls away instead of covering a
+   fifth of the viewport (QA G8). */
+@media (max-width: 600px) {
+  .appheader {
+    position: static;
+  }
+}

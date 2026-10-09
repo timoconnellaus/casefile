@@ -1,0 +1,272 @@
+/* To check (W2-7): filters · queue · context panel (wb/ToCheck.dc.html). */
+
+.tc {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  min-height: 0;
+}
+
+/* ── filters (left) ─────────────────────────────────────── */
+.tc-filters {
+  flex: 1 1 220px;
+  max-width: 250px;
+  border-right: 1px solid var(--line);
+  padding: var(--sp-4) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.tc-filter {
+  display: flex;
+  flex-direction: column;
+}
+
+.tc-filter-title {
+  margin: 0;
+  padding: var(--sp-1) var(--sp-4);
+}
+
+.tc-filter-btn {
+  font: inherit;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: var(--target);
+  padding: 0 var(--sp-4);
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+
+.tc-filter-btn:hover {
+  background: var(--hover);
+}
+
+.tc-filter-btn[aria-pressed="true"] {
+  background: var(--raised);
+  box-shadow: inset 2px 0 0 var(--ink);
+}
+
+.tc-filters-note {
+  margin: 0;
+  padding: 0 var(--sp-4);
+}
+
+/* ── queue (middle) ─────────────────────────────────────── */
+.tc-main {
+  flex: 999 1 560px;
+  min-width: 0;
+  padding: var(--sp-5) var(--sp-6) 32px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-5);
+}
+
+.tc-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-2) var(--sp-4);
+}
+
+.tc-head h1 {
+  font-size: 22px;
+}
+
+.tc-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2) var(--sp-4);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  background: var(--panel);
+}
+
+.tc-status {
+  font-size: var(--fs-md);
+}
+
+.tc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  border-radius: var(--r-md);
+}
+
+.tc-group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-1) var(--sp-3);
+  padding: 0 var(--sp-3) 6px;
+}
+
+.tc-group-title {
+  margin: 0;
+  font-size: var(--fs-xl);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.tc-group-count {
+  font-size: var(--fs-md);
+  font-weight: 400;
+}
+
+.tc-group--danger {
+  border: 1px solid var(--danger-line);
+  border-radius: var(--r-md);
+  padding: var(--sp-3) 0 var(--sp-1);
+}
+
+.tc-table-wrap {
+  overflow-x: auto;
+}
+
+.tc-table {
+  width: 100%;
+  min-width: 760px;
+  border-collapse: collapse;
+}
+
+.tc-table th,
+.tc-table td {
+  padding: 10px var(--sp-3);
+  text-align: left;
+  vertical-align: top;
+  border-top: 1px solid var(--line);
+}
+
+.tc-table thead th {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: var(--muted);
+  border-top: 0;
+  padding-top: 6px;
+  padding-bottom: 6px;
+}
+
+.tc-col-what {
+  width: 38%;
+}
+
+.tc-table tbody th {
+  font-weight: 400;
+}
+
+.tc-table tbody tr.is-selected {
+  background: var(--raised);
+  box-shadow: inset 2px 0 0 var(--ink);
+}
+
+a.tc-what-link {
+  color: var(--ink);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+a.tc-what-link:hover {
+  text-decoration: underline;
+}
+
+.tc-next {
+  margin-top: 2px;
+}
+
+/* ── context (right) ────────────────────────────────────── */
+.tc-context {
+  flex: 1 1 260px;
+  max-width: 320px;
+  border-left: 1px solid var(--line);
+  background: var(--panel);
+  padding: var(--sp-4);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.tc-ctx-title {
+  margin: 0;
+  font-size: var(--fs-body);
+  font-weight: 600;
+}
+
+.tc-ctx-list {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+@media (max-width: 900px) {
+  .tc-filters,
+  .tc-context {
+    max-width: none;
+    border: 0;
+  }
+}
+
+/* Narrow screens: each row becomes a card with its action under the text, so "Next step" is
+   never scrolled out of view (QA T4). Roles set in tocheck.js keep the table semantics. */
+@media (max-width: 600px) {
+  .tc-table {
+    min-width: 0;
+  }
+
+  .tc-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .tc-table,
+  .tc-table tbody,
+  .tc-table tr,
+  .tc-table tbody th {
+    display: block;
+  }
+
+  .tc-table tbody tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sp-2) var(--sp-3);
+    padding: var(--sp-3) 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .tc-table tbody th,
+  .tc-table tbody td {
+    border-top: 0;
+    padding: 0 var(--sp-2);
+  }
+
+  .tc-table tbody th {
+    flex: 1 1 100%;
+  }
+
+  .tc-table td.tc-action {
+    flex: 1 1 100%;
+  }
+
+  /* A long state ("Drafted by Claude — rewritten by you, adopt to confirm") wraps. */
+  .tc-table td {
+    max-width: 100%;
+  }
+
+  .tc-table .badge {
+    white-space: normal;
+  }
+}

@@ -1,0 +1,141 @@
+/* Unlock (W2-8): wb/Unlock.dc.html. PassField and RecoveryKeyPanel are in components.css. */
+
+.unl {
+  align-items: center;
+  justify-content: center;
+  padding: 40px var(--sp-4);
+}
+
+.unl-wrap {
+  width: 100%;
+  max-width: 960px;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-6);
+}
+
+.unl-wrap--narrow {
+  max-width: 620px;
+}
+
+.unl-brand {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  font-size: 22px;
+}
+
+.unl-lede {
+  max-width: 600px;
+}
+
+.unl-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-4);
+  align-items: stretch;
+}
+
+.unl-card {
+  flex: 1 1 380px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: var(--r-md);
+  padding: var(--sp-6);
+}
+
+.unl-card--open {
+  background: var(--panel-2);
+}
+
+.unl-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.unl-field > input {
+  min-height: var(--target-lg);
+  padding: 0 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.unl-field > input.mono {
+  font-size: var(--fs-md);
+}
+
+.unl-hint {
+  color: var(--muted);
+}
+
+.unl-indent {
+  padding-left: 28px;
+}
+
+.unl-recover {
+  gap: var(--sp-4);
+}
+
+.unl-msg:empty {
+  display: none;
+}
+
+.unl-submit {
+  align-self: stretch;
+}
+
+.unl .btn-primary[aria-disabled="true"] {
+  background: var(--disabled-bg);
+  color: var(--muted);
+  border: 0;
+}
+
+.unl-linkbtn {
+  padding: 0;
+  font-size: var(--fs-body);
+  text-align: left;
+}
+
+.unl-forgot > summary {
+  cursor: pointer;
+  color: var(--link);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  min-height: var(--target);
+  display: flex;
+  align-items: center;
+}
+
+.unl-forgot > div {
+  padding-top: 6px;
+  gap: var(--sp-2);
+}
+
+.unl-keybox {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: var(--sp-3);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-sm);
+}
+
+.unl-check {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  min-height: var(--target);
+}
+
+.unl-check > input {
+  margin-top: 2px;
+}
+
+.unl-foot {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}

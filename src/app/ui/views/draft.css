@@ -1,0 +1,572 @@
+/* Draft (W2-6): one draft laid out like the filed document, with the one open panel and the
+   export check in the right column. */
+
+.draft-cols {
+  align-items: stretch;
+}
+
+.draft-main {
+  display: flex;
+  flex-direction: column;
+  flex-basis: 560px;
+}
+
+.draft-head h1 {
+  margin: 0;
+}
+
+.draft-body {
+  padding: var(--sp-4) 28px 48px;
+  gap: var(--sp-4);
+  max-width: 900px;
+}
+
+.draft-counts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.draft-counts > .muted {
+  font-size: var(--fs-md);
+}
+
+.draft-side {
+  flex: 1 1 340px;
+  max-width: 420px;
+  padding: 0;
+}
+
+/* The panel and export check stay in view while the document scrolls (below the AppHeader). */
+.draft-side-inner {
+  position: sticky;
+  top: 49px;
+  max-height: calc(100vh - 49px);
+  overflow-y: auto;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+/* ── the document ──────────────────────────────────────── */
+
+.draft-doc {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+.draft-block {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: var(--sp-4) 0;
+}
+
+#draft-heading {
+  border-bottom: 1px solid var(--line);
+}
+
+#draft-annexures {
+  border-top: 1px solid var(--line);
+  margin-top: var(--sp-4);
+}
+
+.draft-block:focus {
+  outline: none;
+}
+
+.draft-block-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--sp-2) var(--sp-3);
+}
+
+.draft-block-head h2 {
+  margin: 0;
+}
+
+.draft-checkform {
+  font-size: var(--fs-md);
+  color: var(--attn);
+}
+
+.draft-court {
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-align: center;
+  line-height: 1.6;
+}
+
+.draft-heading-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.draft-heading-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--sp-3) var(--sp-4);
+}
+
+.draft-oath {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.draft-oath legend {
+  padding: 0;
+  margin-bottom: 6px;
+}
+
+.draft-oath p {
+  margin: 0;
+}
+
+.draft-radio,
+.draft-check {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  min-height: var(--target);
+  cursor: pointer;
+}
+
+.draft-check {
+  align-items: flex-start;
+  min-height: 0;
+  padding: 4px 0;
+}
+
+.draft-check input {
+  margin-top: 3px;
+}
+
+.draft-opening {
+  margin: var(--sp-2) 0;
+}
+
+.draft-oathword {
+  color: var(--attn);
+}
+
+.draft-para {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  gap: 0 14px;
+  padding: var(--sp-3) var(--sp-3) var(--sp-3) 0;
+  border-radius: var(--r-sm);
+}
+
+.draft-para:focus {
+  outline: none;
+}
+
+.draft-para:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.draft-para.is-selected {
+  background: var(--raised);
+  box-shadow: inset 2px 0 0 var(--ink);
+}
+
+.draft-pnum {
+  font-family: var(--font-mono);
+  font-size: var(--fs-md);
+  color: var(--faint);
+  text-align: right;
+  padding-top: 34px;
+}
+
+.draft-pmain {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  min-width: 0;
+}
+
+.draft-phead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.draft-ptext {
+  margin: 0;
+  font-size: var(--fs-xl);
+  line-height: 1.75;
+  color: var(--ink);
+}
+
+.draft-ph {
+  font-size: var(--fs-body);
+  color: var(--attn);
+  background: var(--attn-bg);
+  border: 1px dashed var(--attn-line);
+  border-radius: var(--r-sm);
+  padding: 1px 6px;
+}
+
+.draft-flags {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: var(--fs-md);
+}
+
+.draft-flags .checklist {
+  margin: 0;
+}
+
+.draft-relies {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--fs-md);
+}
+
+.draft-relies li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.draft-note {
+  margin: 0;
+  font-size: var(--fs-body);
+  color: var(--muted);
+}
+
+.draft-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.draft-why {
+  margin: 0;
+  font-size: var(--fs-body);
+  color: var(--ink);
+  flex-basis: 100%;
+}
+
+.draft-srcbtn {
+  font: inherit;
+  font-size: var(--fs-md);
+  min-height: var(--target);
+  padding: 0 var(--sp-2) 0 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.draft-srcbtn:hover {
+  color: var(--ink);
+}
+
+.draft-caret .icon {
+  transition: transform 0.12s;
+}
+
+.draft-caret.is-open .icon,
+.draft-caret .icon.is-open {
+  transform: rotate(90deg);
+}
+
+.draft-sources {
+  align-self: stretch;
+}
+
+.draft-add {
+  margin-top: var(--sp-4);
+  padding-top: var(--sp-4);
+  border-top: 1px solid var(--line);
+}
+
+.draft-add textarea {
+  width: 100%;
+}
+
+.draft-jurat {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--sp-3) var(--sp-4);
+}
+
+.draft-jurat-row {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--line-2);
+  min-height: 44px;
+}
+
+.draft-jurat-row .muted {
+  font-size: var(--fs-sm);
+}
+
+/* ── the right column ──────────────────────────────────── */
+
+.draft-panel {
+  gap: 14px;
+  padding: var(--sp-4);
+  border: 1px solid var(--control);
+  border-radius: var(--r-md);
+  background: var(--panel-2);
+}
+
+.draft-panel-head h2 {
+  margin: 0;
+  font-size: var(--fs-lg);
+}
+
+.draft-panel-head h2:focus {
+  outline: none;
+}
+
+.draft-panel h3 {
+  margin: 0;
+  font-size: var(--fs-body);
+}
+
+.draft-panel textarea,
+.draft-panel input[type="text"] {
+  width: 100%;
+}
+
+.draft-panel > .badge {
+  align-self: flex-start;
+  white-space: normal;
+}
+
+.draft-quote {
+  margin: 0;
+  padding: 10px var(--sp-3);
+  border-left: 2px solid var(--control);
+  background: var(--bg);
+  font-size: var(--fs-lg);
+  line-height: 1.7;
+}
+
+.draft-fact {
+  margin: 0;
+  padding: 10px var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.draft-fact legend {
+  padding: 0 4px;
+  font-weight: 500;
+}
+
+.draft-fact .checklist {
+  margin: 0;
+}
+
+.draft-fact-q {
+  margin: 0;
+}
+
+.draft-fact-opts {
+  display: flex;
+  flex-direction: column;
+}
+
+.draft-attest {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.draft-attest legend {
+  padding: 0;
+  margin-bottom: 4px;
+  font-weight: 600;
+}
+
+.draft-export h2,
+.draft-side section > h2.eyebrow {
+  margin: 0;
+}
+
+.draft-exp-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.draft-exp-row {
+  display: grid;
+  grid-template-columns: 18px minmax(0, 1fr);
+  gap: var(--sp-2);
+  align-items: start;
+  width: 100%;
+  min-height: var(--target);
+  padding: 6px var(--sp-2);
+  border: 0;
+  border-radius: var(--r-sm);
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: var(--fs-md);
+  line-height: 1.45;
+  text-align: left;
+}
+
+button.draft-exp-row {
+  cursor: pointer;
+}
+
+button.draft-exp-row:hover {
+  background: var(--hover);
+}
+
+.draft-exp-row .check-glyph {
+  padding-top: 2px;
+}
+
+.draft-g--ok {
+  color: var(--ink);
+}
+
+.draft-g--attention {
+  color: var(--attn);
+}
+
+.draft-g--danger {
+  color: var(--danger);
+}
+
+.draft-side .muted {
+  font-size: var(--fs-md);
+  margin: 0;
+}
+
+.draft-side p {
+  margin: 0;
+}
+
+.draft-conv {
+  padding: var(--sp-2) 10px;
+  background: var(--bg);
+  border-radius: var(--r-sm);
+  font-size: var(--fs-md);
+}
+
+/* Long state labels wrap on narrow screens instead of widening the page. */
+.draft-phead .badge,
+.draft-counts .badge,
+.draft-relies .badge {
+  white-space: normal;
+}
+
+@media (max-width: 700px) {
+  .draft-body {
+    padding: var(--sp-3) var(--sp-4) 32px;
+  }
+
+  .draft-para {
+    grid-template-columns: 24px minmax(0, 1fr);
+    gap: 0 8px;
+  }
+
+  .draft-side,
+  .drafts-aside {
+    max-width: none;
+  }
+
+  .draft-side-inner {
+    position: static;
+    max-height: none;
+  }
+}
+
+/* Annexure marks (W3-1). */
+.draft-marks {
+  margin-top: var(--sp-3);
+}
+
+.draft-mark-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.draft-mark-input {
+  width: 10ch;
+}
+
+/* Narrow screens: the cited-documents table stacks into label/value rows instead of scrolling
+   sideways (QA DR1). */
+@media (max-width: 480px) {
+  .dtable-wrap:has(> .draft-cites) {
+    overflow-x: visible;
+  }
+
+  .draft-cites {
+    min-width: 0;
+  }
+
+  .draft-cites thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+  }
+
+  .draft-cites,
+  .draft-cites tbody,
+  .draft-cites tr,
+  .draft-cites th,
+  .draft-cites td {
+    display: block;
+  }
+
+  .draft-cites tbody tr {
+    padding: var(--sp-2) 0;
+    border-top: 1px solid var(--line);
+  }
+
+  .draft-cites tbody th,
+  .draft-cites tbody td {
+    border: 0;
+    padding: 2px 0;
+  }
+
+  .draft-mark-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

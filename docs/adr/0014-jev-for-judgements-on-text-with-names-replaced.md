@@ -178,16 +178,17 @@ picks the threshold with the best F1 (midpoint of the widest gap on ties); the r
 next to the questions, and `tests/judge_calibration_test.ts` re-runs them when the model is
 available. On 2026-10-09:
 
-| Question | On this computer (deberta-v3-xsmall) | Language model (qwen3.6-35b-a3b, LM Studio) | Jev |
+| Question | On this computer (deberta-v3-xsmall) | Language model (qwen3.6-35b-a3b, LM Studio) | Jev (jev-1.13.0) |
 |---|---|---|---|
-| feeling or opinion | threshold 0.998: precision 85%, recall 94% | 0.5: 100%, 100% | not calibrated |
-| fair reading | 0.7027: precision 88%, recall 100% | 0.525: 93%, 93% | not calibrated |
-| origin hint | 0.5893: precision 100%, recall 92% | 0.495: 100%, 83% | not calibrated |
+| feeling or opinion | threshold 0.998: precision 85%, recall 94% | 0.5: 100%, 100% | 0.475: 100%, 100% |
+| fair reading | 0.7027: precision 88%, recall 100% | 0.525: 93%, 93% | 0.79: 100%, 100% |
+| origin hint | 0.5893: precision 100%, recall 92% | 0.495: 100%, 83% | 0.075: 100%, 100% |
 
 These figures are optimistic: the set is small, and the local recipes' hypotheses were chosen on it.
-Jev has not been run on it (no key was available); its thresholds are a neutral 0.5 and Settings
-says its checks are not tuned yet. The language model's figures hold only for that model.
+The language model's figures hold only for that model. Jev's origin threshold is low because its
+scores are: the father's affidavit scored 0.09 and the user's own text messages 0.06, so the margin
+is thin; a false flag only asks the user to look again.
 
-**Open.** Calibrating Jev (`TYPESAFE_API_KEY=… deno task judge-eval jev`, billed to that key) and a
-larger, held-out evaluation set; whether the extra checks should use their own language model
+**Open.** A larger, held-out evaluation set (in particular more documents from the other side, where
+Jev's origin margin is thin); whether the extra checks should use their own language model
 setting rather than the one under Finding names; the unbuilt checks listed above.

@@ -109,7 +109,7 @@ Deno.test("CANON: the summary's sentences are fixed, modest and answer PD-AI 4.1
     "Plan: a consumer plan (Claude Pro or Max), as recorded by you on 3 September 2025.",
   );
   assertStringIncludes(tools, "No language model was used by casefile to find names.");
-  assertStringIncludes(tools, "Jev (extra checks by a language model): off.");
+  assertStringIncludes(tools, "Jev by TypeSafe AI (extra checks): never turned on.");
   const checking = section(sum, "checking").join("\n");
   assertStringIncludes(checking, "Chronology: you checked 12 of the 17 Claude wrote");
   assertStringIncludes(checking, "Evidence links: you checked 9 of the 11 Claude wrote");

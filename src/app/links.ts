@@ -1,6 +1,7 @@
 /**
- * The only web pages casefile links to: free legal help (DESIGN-SPEC §6, "Not legal advice") and
- * Anthropic's guide to installing Claude Code (Getting started).
+ * The only web pages casefile links to: free legal help (DESIGN-SPEC §6, "Not legal advice"),
+ * Anthropic's guide to installing Claude Code (Getting started) and TypeSafe's terms for Jev
+ * (Settings → Extra checks).
  * The app never loads anything from the internet (CSP `default-src 'self'`); these open in the
  * user's own web browser. The UI's copy (`ui/components/links.js`) must match this list, and
  * `tests/ui_model_test.ts` allows exactly these addresses in the UI source.
@@ -21,6 +22,16 @@ export const EXTERNAL_LINKS = {
   claude_code_setup: {
     url: "https://docs.claude.com/en/docs/claude-code/setup",
     label: "Claude Code install guide",
+  },
+  // Settings → Extra checks: TypeSafe's terms for Jev, read before turning it on (ADR 14,
+  // PD-AI 4.18). `JEV_TERMS` in core/judge/jev.ts names the same pages.
+  typesafe_privacy: {
+    url: "https://typesafe.ai/legal/privacy-policy",
+    label: "TypeSafe privacy policy",
+  },
+  typesafe_legal: {
+    url: "https://docs.typesafe.ai/legal",
+    label: "TypeSafe legal terms",
   },
 } as const;
 

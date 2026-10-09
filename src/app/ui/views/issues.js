@@ -10,6 +10,7 @@ import {
   CheckList,
   ConfirmBar,
   EmptyState,
+  ExtraCheck,
   Field,
   FlagBadge,
   Icon,
@@ -718,6 +719,9 @@ export default async function view(main, params, ctx) {
             caveat:
               "These checks only look for names, dates and numbers. Whether Claude’s note is a fair reading is for you to judge.",
           }),
+          needs
+            ? ExtraCheck({ type: "evidence", id: e.id, label: `the evidence note on ${e.doc_id}` })
+            : null,
           e.ownStatementOnly && needs
             ? Callout({
               tone: "attention",

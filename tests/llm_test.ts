@@ -364,6 +364,62 @@ Deno.test("a 400 is retried without response_format, and the server's choice is 
   }
 });
 
+Deno.test('thinking is turned off with "reasoning_effort": "none"', async () => {
+  const srv = fakeServer(() => completion(entities([])));
+  try {
+    await new LlmDetector({ baseUrl: srv.baseUrl, model: "m", trustLocalServer: true })
+      .detect("Some text.");
+    assertEquals(chat(srv)[0].body!.reasoning_effort, "none");
+  } finally {
+    await srv.close();
+  }
+});
+
+Deno.test("a server that rejects reasoning_effort is asked again without it, and that is remembered", async () => {
+  // Rejects reasoning_effort but takes JSON mode: JSON mode must survive the fallback.
+  const srv = fakeServer((body) =>
+    "reasoning_effort" in body
+      ? new Response('{"error":"unknown field reasoning_effort"}', { status: 400 })
+      : completion(entities([{ text: "Rebecca", kind: "person", role: "mother" }]))
+  );
+  try {
+    const det = new LlmDetector({ baseUrl: srv.baseUrl, model: "m", trustLocalServer: true }, {
+      chunkChars: 20,
+    });
+    const text = "Rebecca went home.\nRebecca came back.\n";
+    const spans = await det.detect(text);
+    assertEquals(spans.map((s) => text.slice(s.start, s.end)), ["Rebecca", "Rebecca"]);
+    const sent = chat(srv).map((s) => [
+      "reasoning_effort" in s.body!,
+      "response_format" in s.body!,
+    ]);
+    // First chunk: both (400), without JSON mode (400), without reasoning_effort (ok); second
+    // chunk: straight to the combination that worked.
+    assertEquals(sent, [[true, true], [true, false], [false, true], [false, true]]);
+  } finally {
+    await srv.close();
+  }
+});
+
+Deno.test("a server that rejects both fields gets neither, from then on", async () => {
+  const srv = fakeServer((body) =>
+    "reasoning_effort" in body || "response_format" in body
+      ? new Response("{}", { status: 400 })
+      : completion(entities([]))
+  );
+  try {
+    const det = new LlmDetector({ baseUrl: srv.baseUrl, model: "m", trustLocalServer: true }, {
+      chunkChars: 20,
+    });
+    await det.detect("Rebecca went home.\nRebecca came back.\n");
+    const last = chat(srv).at(-1)!.body!;
+    assert(!("reasoning_effort" in last) && !("response_format" in last));
+    assertEquals(chat(srv).length, 5); // 4 tries for the first chunk, 1 for the second
+  } finally {
+    await srv.close();
+  }
+});
+
 Deno.test("spans are located exactly, then case-insensitively, on whole words only", () => {
   const chunk = "Mia moved to Miami. MIA and mia\nboth.  Kiama   Downs school";
   const spans = spansFromReply(chunk, {

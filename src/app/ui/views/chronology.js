@@ -22,6 +22,7 @@ import {
   ConfirmBar,
   CopyBlock,
   EmptyState,
+  ExtraCheck,
   Icon,
   Key,
   linkEntities,
@@ -1076,6 +1077,9 @@ export default async function view(main, _params, ctx) {
           : null,
       ),
       CheckList({ rows: e.checks }),
+      e.created_by === "claude" && s !== "checked"
+        ? ExtraCheck({ type: "chronology", id: e.id, label: `the entry for ${label}` })
+        : null,
     ];
 
     if (e.ownStatementOnly && s !== "checked") {

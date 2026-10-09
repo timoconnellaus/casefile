@@ -14,6 +14,7 @@ import {
   CheckList,
   ConfirmBar,
   confirmDialog,
+  ExtraCheck,
   Field,
   FlagBadge,
   Icon,
@@ -1007,6 +1008,7 @@ export default async function view(main, params, ctx) {
           caveat: null,
         })
         : null,
+      ExtraCheck({ type: "paragraph", id: p.id, label: `paragraph ${p.n}` }),
       h("p", {}, tip),
       h("label", { for: "panel-text" }, "Your version"),
       ta,
@@ -1151,6 +1153,7 @@ export default async function view(main, params, ctx) {
       PanelHead(`Use these words as my own — paragraph ${p.n}`, p),
       Badge("para", p.state),
       h("blockquote", { class: "draft-quote" }, BodyText(p.body?.segs, false)),
+      ExtraCheck({ type: "paragraph", id: p.id, label: `paragraph ${p.n}` }),
       h(
         "p",
         { class: "muted" },

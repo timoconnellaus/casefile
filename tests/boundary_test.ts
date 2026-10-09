@@ -12,6 +12,7 @@ const FORBIDDEN = [
   "src/core/signing.ts",
   "src/core/entities.ts",
   "src/core/detect/",
+  "src/core/judge/",
   "src/core/tokenise.ts",
   "src/core/drafting.ts",
   "src/core/pdf", // pdf.ts and its worker: the original files (ADR 23)

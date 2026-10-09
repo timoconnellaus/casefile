@@ -36,6 +36,32 @@ export interface CheckRow {
   message: string;
 }
 
+/**
+ * Where casefile's extra checks run (ADR 14): `local` a classifier on this computer, `llm` a
+ * language model the user set up, `jev` Jev by TypeSafe (text with names replaced only).
+ */
+export type JudgeBackendId = "local" | "llm" | "jev";
+
+/**
+ * One flag from casefile's extra checks (ADR 14): something for the user to look at. It is never
+ * a `CheckRow`, so it can never make an item "Can't check", and nothing that marks an item
+ * checked, adopted or shared reads it.
+ */
+export interface JudgeFlag {
+  kind: "judgement";
+  /** The question it answers (`judge/questions.ts`). */
+  question: string;
+  /** Always attention: an extra check only asks the user to look again. */
+  level: "attention";
+  /** Plain English, starting "casefile's extra check thinks…". */
+  message: string;
+  /** What it is about, e.g. a sentence, with names replaced. */
+  text?: string;
+  /** Where it applies, e.g. "D001:1-2". */
+  where?: string;
+  backend: JudgeBackendId;
+}
+
 /** A suggestion of a document's origin from a stamp in its text ("Produced under subpoena"). */
 export interface OriginHint {
   origin: Origin;

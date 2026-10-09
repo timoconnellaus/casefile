@@ -1,5 +1,7 @@
 import { isAbsolute, join, relative, resolve, SEPARATOR } from "@std/path";
 import type { Detector } from "../core/detect/types.ts";
+import { createJudge, type JudgeDeps } from "../core/judge/factory.ts";
+import type { Judge } from "../core/judge/types.ts";
 import { casePaths, isCaseDir } from "../core/case.ts";
 import { InvalidInputError } from "../core/publicdb.ts";
 import { CaseInUseError, CaseLock } from "../core/caselock.ts";
@@ -39,6 +41,8 @@ export interface AppStateOptions {
   detectorFactory?: (settings: CaseSettings) => Promise<Detector[]> | Detector[];
   /** Classifies the configured LLM endpoint as local or remote. */
   llmChecker?: (settings: CaseSettings) => Promise<LlmCheck>;
+  /** What the extra checks' backends use to reach a model (tests pass stubs) (ADR 14). */
+  judgeDeps?: JudgeDeps;
   /** KDF iterations for new vaults (tests use fewer). */
   kdfIterations?: number;
   /**
@@ -462,6 +466,7 @@ export class AppState {
    * store is closed. Await it before the process exits, or the last writes are lost.
    */
   lock(): Promise<void> {
+    this.#judge = null;
     const s = this.session;
     this.session = null;
     this.token = null;
@@ -560,6 +565,28 @@ export class AppState {
     this.session.detectors = this.opts.detectorFactory
       ? await this.opts.detectorFactory(this.session.settings)
       : [];
+  }
+
+  #judge: { key: string; judge: Judge | null } | null = null;
+
+  /**
+   * The extra-check backend the open case's settings choose (ADR 14), or null when none can run.
+   * Kept while the settings it was made from stay the same, so a language model server's answer
+   * to "do you take reasoning_effort?" is remembered between checks.
+   */
+  judge(): Judge | null {
+    if (!this.session) throw new HttpError(423, "The case is locked");
+    const st = this.session.settings;
+    const key = JSON.stringify([this.session.paths.root, st.judge ?? null, st.llm ?? null]);
+    if (this.#judge?.key !== key) {
+      this.#judge = { key, judge: createJudge(st, this.opts.judgeDeps) };
+    }
+    return this.#judge.judge;
+  }
+
+  /** Forget the judge, so the next check uses the settings as they are now. */
+  forgetJudge() {
+    this.#judge = null;
   }
 
   async checkLlm(): Promise<LlmCheck | null> {

@@ -553,6 +553,17 @@ export interface CourtFigures {
   };
   nameFinder: { onNow: boolean; documents: number };
   languageModel: { documents: number; from: string | null; to: string | null };
+  /**
+   * casefile's extra checks (ADR 14), from sealed log rows: questions answered per backend, and
+   * when Jev was turned on and off.
+   */
+  extraChecks: {
+    local: number;
+    llm: number;
+    jev: number;
+    jevOn: string[];
+    jevOff: string[];
+  };
   chronology: WorkCounts;
   evidence: WorkCounts;
   issues: WorkCounts;
@@ -634,6 +645,9 @@ async function figures(session: CaseSession, inv: Inventory): Promise<CourtFigur
   const used = (name: string) =>
     imports.filter((r) => Array.isArray(r.detail.detectors) && r.detail.detectors.includes(name));
   const llm = used("llm");
+  const judged = (b: string) =>
+    signedRows(log, ["judge_ran"]).filter((r) => r.detail.backend === b)
+      .reduce((n, r) => n + (typeof r.detail.judgements === "number" ? r.detail.judgements : 0), 0);
   const paste = signedRows(log, [...PASTE_VIEW_ACTIONS, "paste_copied", "paste_added"]);
   const byOrigin = Object.fromEntries(ORIGINS.map((o) => [o, 0])) as Record<Origin, number>;
   const kept = inv.docs.filter((d) => d.state === "withheld");
@@ -655,6 +669,13 @@ async function figures(session: CaseSession, inv: Inventory): Promise<CourtFigur
       documents: llm.length,
       from: llm[0]?.ts ?? null,
       to: llm.at(-1)?.ts ?? null,
+    },
+    extraChecks: {
+      local: judged("local"),
+      llm: judged("llm"),
+      jev: judged("jev"),
+      jevOn: signedRows(log, ["jev_turned_on"]).map((r) => r.ts),
+      jevOff: signedRows(log, ["jev_turned_off"]).map((r) => r.ts),
     },
     chronology: workCounts(inv.chronology),
     evidence: workCounts(inv.evidence),
@@ -736,6 +757,22 @@ const ORIGIN_SHORT: Record<Origin, string> = {
   mine: "yours",
 };
 
+/** Jev, a second AI tool when it was ever turned on (ADR 14, PD-AI 4.11). */
+function jevLine(x: CourtFigures["extraChecks"]): string {
+  if (!x.jevOn.length && !x.jev) return "Jev by TypeSafe AI (extra checks): never turned on.";
+  const periods = x.jevOn.map((on) => {
+    const off = x.jevOff.find((t) => t >= on);
+    return off
+      ? `from ${formatDate(on)} to ${formatDate(off)}`
+      : `from ${formatDate(on)}, and is still on`;
+  });
+  return `Jev by TypeSafe AI, a second AI tool, used for extra checks: turned on by you ${
+    periods.join("; ") || "(when is not recorded)"
+  }. It answered ${plural(x.jev, "question")} about text with names replaced from documents ` +
+    "shared with Claude; it was never sent original documents or documents kept from Claude. " +
+    "TypeSafe hosts it in the United States.";
+}
+
 function sections(f: CourtFigures): CourtSummary["sections"] {
   const c = f.claude;
   const aiUsed = c.logEntries
@@ -759,8 +796,24 @@ function sections(f: CourtFigures): CourtSummary["sections"] {
         plural(f.languageModel.documents, "document")
       } (${formatRange(f.languageModel.from!, f.languageModel.to!)}).`
       : "No language model was used by casefile to find names.",
-    "Jev (extra checks by a language model): off. casefile's own checks compare names, dates " +
-    "and numbers with the cited lines; they do not use AI.",
+    jevLine(f.extraChecks),
+    ...(f.extraChecks.local
+      ? [
+        `casefile's extra checks on this computer (a small model that runs on this computer): ${
+          plural(f.extraChecks.local, "question")
+        } answered.`,
+      ]
+      : []),
+    ...(f.extraChecks.llm
+      ? [
+        `The language model set up in casefile also answered ${
+          plural(f.extraChecks.llm, "extra-check question")
+        }, about text with names replaced.`,
+      ]
+      : []),
+    "casefile's own checks compare names, dates and numbers with the cited lines; they do not " +
+    "use AI. Answers from extra checks only point things out for you to look at: they never mark " +
+    "anything as checked, adopted or shared.",
   ];
 
   const checking = [
@@ -1007,6 +1060,17 @@ const join = (...parts: (string | null | false | undefined)[]) => {
 
 type Label = [LogCategory, (d: Detail) => string, ((d: Detail) => string | null)?];
 
+/** Where an extra check ran, in plain words (a logged value, so only known ones are shown). */
+function judgeWhere(b: unknown): string {
+  return b === "local"
+    ? "on this computer"
+    : b === "llm"
+    ? "a language model set up in casefile"
+    : b === "jev"
+    ? "Jev by TypeSafe AI"
+    : "extra checks";
+}
+
 /**
  * Plain-language label, category and (optional) detail note for each action the app or the CLI
  * logs. Labels and notes name document ids, counts and citations only, never content: some detail
@@ -1194,6 +1258,39 @@ const LABELS: Record<string, Label> = {
       ),
   ],
   terminal_opened: ["settings", () => "You opened Terminal in the case folder"],
+  // ── extra checks (ADR 14): counts only, never the text, questions or answers ──
+  judge_backend_changed: [
+    "settings",
+    (d) =>
+      d.backend === "off"
+        ? "You turned off casefile's extra checks"
+        : `You chose where casefile's extra checks run: ${judgeWhere(d.backend)}`,
+  ],
+  jev_turned_on: [
+    "settings",
+    () => "You turned on Jev by TypeSafe AI for extra checks",
+    () => "It sees only text with names replaced, from documents shared with Claude",
+  ],
+  jev_turned_off: ["settings", () => "You turned off Jev by TypeSafe AI"],
+  jev_key_saved: ["settings", () => "You saved a key for Jev by TypeSafe AI"],
+  jev_key_removed: ["settings", () => "You removed the key for Jev by TypeSafe AI"],
+  judge_tested: [
+    "settings",
+    (d) => `You tested casefile's extra check (${judgeWhere(d.backend)})`,
+    (d) => (d.ok === true ? "It worked" : "It didn't work"),
+  ],
+  judge_ran: [
+    "checking",
+    (d) => `casefile's extra check (${judgeWhere(d.backend)}) looked at an item for you`,
+    (d) =>
+      join(
+        count(d.judgements, "question") ? `${count(d.judgements, "question")} answered` : null,
+        typeof d.flags === "number"
+          ? d.flags ? `${plural(d.flags, "thing")} to look at` : "Nothing to look at"
+          : null,
+        d.failed === true ? "It couldn't finish" : null,
+      ),
+  ],
   // ── people ──
   entity_updated: ["people", (d) => `You changed the details of {{${txt(d.role)}}}`],
   entity_renamed: [

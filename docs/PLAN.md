@@ -68,6 +68,7 @@ The original milestones (1–6) built the core and a first app; the v2 rebuild (
 - **Case setup**: recovery key, idle lock 15/30/60 minutes, Claude Code folder checks and restore, "Open Terminal here", PD-AI 5.4 confirmations, Getting started checklist (ADR 4, ADR 13, ADR 17).
 - **CLI**: logs the lines and hits it returns, paragraph `--source` / `--relies`, plain withheld reasons, removed items hidden, guide rules against writing the witness's feelings (ADR 16).
 - **Export** (wave 3): RTF for Word (affidavit with heading, numbered paragraphs and jurat; chronology table, checked only or all with unchecked marked), vault-only annexure marks, a provenance report per draft, and a safety confirmation before an export includes a protected address (ADR 21).
+- **Extra checks** (ADR 14): a `Judge` interface with three backends (a pinned NLI model on this computer, the language model under Finding names, Jev by TypeSafe), asked on request about chronology entries, evidence, draft paragraphs and shared documents; flags only, counts-only logging, Jev off by default and listed in the Court summary when used; thresholds calibrated on a synthetic labelled set (`deno task judge-eval`).
 - **Seed**: `deno task seed` builds the synthetic CANON case (312 or 40 documents) through the real flows.
 
 - **Cleanup** (W3-4): the legacy views and their shims, the `#/search` page and the old redirects are gone; so are the deprecated API surfaces (`sensitivity` fields and `POST /api/docs/:id/sensitivity`, `similarity`, the three-value paragraph `status`, `/api/stats`, `/api/reidentify`, `/api/settings/claude-setup`, the array-shaped `/api/search` and the `/api/entities` list). The API accepts origin values only; stored pre-v4 vault documents still read. Every value left as written needs the user's reason.
@@ -84,7 +85,7 @@ These are deliberate (REBUILD-PLAN section 3). The UI says so honestly rather th
 | Attaching original files as annexures | Only PDFs keep their original (ADR 23); exports don't attach files yet | Annexure marks work (ADR 21); the user attaches the originals when filing |
 | `.docx` / PDF export | No approved dependency; zip and docx generation is unreviewed surface | "Export for Word (.rtf)"; to make a PDF, open it in Word and Save as PDF |
 | Encrypted single-file backup and restore | The restore path is the risky part and needs its own ADR and tests | Getting started lists backup as not available yet; copy the whole case folder while casefile is closed. The recovery key **is** built |
-| Judge backends and Jev (ADR 14), judgement fact checks, a quasi-identifier pass | The classifier and LLM calibration are unbuilt | Only casefile's deterministic checks (names, dates, numbers) run; the Court summary says Jev is off |
+| Judgement checks beyond the three built (direct quote, law to check), a quasi-identifier pass, Jev calibration | Not built; calibrating Jev needs a TypeSafe key and is billed | Extra checks ask three questions; Jev's thresholds are a neutral 0.5 and Settings says it is not tuned yet (ADR 14 amendment) |
 | Merging two people | A large token rewrite across documents, notes and drafts | Button hidden; the People screen says to rename or add the other spelling as a nickname |
 | Light theme | Contrast is specified and tested for dark only | Dark only (ADR 20) |
 | "My affidavit sworn [date], para 4" citations | Not built in W3-1 | Citations of unmarked documents become "Title, line N" |
@@ -108,7 +109,7 @@ These are deliberate (REBUILD-PLAN section 3). The UI says so honestly rather th
 **Checks and flags that rest on the user's own answers**
 
 - **"Only source is your own statement" depends on the user's own author choice.** It is shown when every cited document is origin `mine` and recorded as written by the role the user set as themselves; casefile does not check the document's content, so a wrong answer to "Who wrote it?" or a wrong `userRole` shows or hides the flag wrongly (ADR 8 amendment).
-- casefile's checks are deterministic (names, dates, numbers, feeling words, placeholders). They cannot tell whether a claim is a fair reading; that is the user's tick.
+- casefile's own checks are deterministic (names, dates, numbers, feeling words, placeholders). They cannot tell whether a claim is a fair reading; that is the user's tick. Extra checks (ADR 14) can point out a note that may not be a fair reading, but they are small models or a hosted one, calibrated on a small synthetic set, and can be wrong both ways; they never mark anything checked.
 - A lapsed check is not bound to content, so an item Claude replaces with SQL under the same id can show "Changed since you checked" when it should say "To check" (over-warns only, ADR 8).
 
 **Text not re-checked**
@@ -142,6 +143,7 @@ These are deliberate (REBUILD-PLAN section 3). The UI says so honestly rather th
 | Claude's work is "To check" until the user compares it with the cited lines and ticks both checks; citations link to source lines; casefile's own checks flag mismatches and block checking when it can't check | 4.6–4.7 |
 | Affidavits: per-paragraph authorship history; export blocked until every Claude paragraph is adopted (one at a time, signed, logged) and no placeholder remains | 4.9 |
 | LLM endpoint classified; remote refused unless allowed | 4.18–4.19 |
+| Jev off by default, terms linked with the date checked, key in the vault, names-replaced text from shared documents only, listed as a second AI tool | 4.11, 4.18–4.19, 5.4–5.5 |
 | Claude Code web tools denied and checked; "Help improve Claude" and chat history confirmations recorded | 5.4 |
 | AI-use log and Court summary from signed records | 4.11 |
 
@@ -169,6 +171,7 @@ The user runs the desktop app, installed from this repo's GitHub releases. It up
 - **Release:** open a PR; once GitHub CI is green and it is merged, the push to `main` releases it at the next version. The release workflow builds, smoke-tests, makes update patches, then signs and publishes (after the owner's approval, if the `release` environment requires it). A new version backs the case up to `~/Library/Application Support/casefile/backups/` (Claude Code can't read there) before it first opens it, and installs its own `casefile` CLI to `~/.local/bin`.
 - **Go back:** quit casefile, install the earlier release's `casefile-macos-arm64.zip` from GitHub over `~/Applications/casefile.app`, then replace the case folder's contents with the backup made before the version being left (everything except `backup.json`). Work done since that backup is lost.
 - **Schema changes:** bump `SCHEMA_VERSION`, add a migration, then freeze the new version with `UPDATE_SCHEMA_FIXTURE=1 deno task test tests/schema_fixtures_test.ts`.
+- **Jev in development:** the TypeSafe key is `TYPESAFE_API_KEY` in `.env` at the checkout's root (gitignored; `.worktreeinclude` copies it into each new Claude Code worktree). In a cloud environment, set `TYPESAFE_API_KEY` in the environment's variables instead: a real variable wins over `.env`, and a missing `.env` is only a warning. `deno task judge-eval jev` uses it (calls are billed to that account). The app never reads it: to try Jev in `deno task dev`, paste the key in Settings → Extra checks, which keeps it in that case's vault.
 - **Reporting a problem:** describe it in general terms ("a person with two aliases on the review screen"). It is reproduced on the CANON case and fixed with a test. Real documents and screenshots stay out of sessions (ADR 11).
 
 ## Development rule

@@ -127,6 +127,21 @@ export interface CaseSettings {
   plan?: { setup: ClaudeSetup; conditions?: PlanConditions; at: string };
   /** Whether a recovery key has been set up for this case. */
   recoveryKey?: boolean;
+  /**
+   * casefile's extra checks (ADR 14): which backend, and Jev's key and when it was turned on. The
+   * key is only ever read by the server to call Jev; no API response, log row or public.db row
+   * holds it. Absent: the default (on this computer, Jev off).
+   */
+  judge?: JudgeSettings;
+}
+
+/** Where casefile's extra checks run; "off" leaves only the built-in checks (ADR 14). */
+export interface JudgeSettings {
+  backend: "off" | "local" | "llm" | "jev";
+  /** The user's TypeSafe API key. Vault only. */
+  jevKey?: string;
+  /** When the user last turned Jev on (ISO), while it is on. */
+  jevOnSince?: string;
 }
 
 export type DocStatus = "pending" | "published";

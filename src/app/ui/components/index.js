@@ -18,6 +18,7 @@ export {
 export { LinesTable } from "./lines.js";
 export { SourcePanel } from "./source.js";
 export { CheckList } from "./checklist.js";
+export { ExtraCheck } from "./extracheck.js";
 export {
   announce,
   Callout,

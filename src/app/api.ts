@@ -15,6 +15,7 @@ import { pasteErrors, pasteRoutes } from "./routes/paste.ts";
 import { logErrors, logRoutes } from "./routes/log.ts";
 import { overviewErrors, overviewRoutes } from "./routes/overview.ts";
 import { exportErrors, exportRoutes } from "./routes/export.ts";
+import { judgeErrors, judgeRoutes } from "./routes/judge.ts";
 
 /**
  * JSON API for the desktop UI. Everything returned here is for the user's eyes: tokens are
@@ -45,6 +46,7 @@ export function buildRoutes(state: AppState): Route[] {
     ...notesRoutes(ctx),
     ...logRoutes(ctx),
     ...overviewRoutes(ctx),
+    ...judgeRoutes(ctx),
   ];
 }
 
@@ -75,6 +77,7 @@ export const ERROR_MAPPERS: ErrorMapper[] = [
   ...logErrors,
   ...overviewErrors,
   ...exportErrors,
+  ...judgeErrors,
   ...GENERAL_ERRORS,
 ];
 

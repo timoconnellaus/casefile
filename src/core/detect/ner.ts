@@ -436,14 +436,14 @@ async function exists(path: string): Promise<boolean> {
  * the verified bytes and must load the model from those and nothing else. Any mismatch throws
  * ModelPinError and `load` is never called.
  */
-export async function loadPinnedClassifier(opts: {
+export async function loadPinnedClassifier<T = TokenClassifier>(opts: {
   modelDir: string;
   pin: ModelPin;
   download?: () => Promise<ModelFiles>;
-  load: (files: ModelFiles) => Promise<TokenClassifier>;
+  load: (files: ModelFiles) => Promise<T>;
   /** Test hook: runs after the files are verified and before they are loaded. */
   afterVerify?: () => void | Promise<void>;
-}): Promise<TokenClassifier> {
+}): Promise<T> {
   if (!Object.keys(opts.pin).length) throw new ModelPinError(["(no hashes to check against)"]);
   let files: ModelFiles;
   if (await exists(opts.modelDir)) files = await readVerifiedModelFiles(opts.modelDir, opts.pin);
@@ -503,11 +503,22 @@ export function pinnedModelCache(spec: NerModelSpec, files: ModelFiles): PinnedM
 /** transformers.js's `env` is global; loads take turns so each sees only its own cache. */
 let envTurn: Promise<unknown> = Promise.resolve();
 
-async function transformersPipeline(
+/** The parts of transformers.js a pinned load uses. */
+// deno-lint-ignore no-explicit-any
+export type Transformers = any;
+
+/**
+ * Run `build` with transformers.js set up to load model files only from `files` (the verified
+ * bytes) through its custom cache. Shared by every pinned model casefile loads (the name finder
+ * here, the extra-check model in `judge/local.ts`), which take turns because `env` is global.
+ */
+export async function withPinnedModel<T>(
   spec: NerModelSpec,
   files: ModelFiles,
-): Promise<TokenClassifier> {
-  const { pipeline, env } = await import("@huggingface/transformers");
+  build: (tf: Transformers) => Promise<T>,
+): Promise<T> {
+  const tf = await import("@huggingface/transformers");
+  const { env } = tf;
   const cache = pinnedModelCache(spec, files);
   const run = envTurn.catch(() => {}).then(async () => {
     // Model files come only from `cache`. The library's own file-system and browser caches are
@@ -524,21 +535,28 @@ async function transformersPipeline(
     env.useCustomCache = true;
     env.customCache = cache;
     try {
-      // deno-lint-ignore no-explicit-any
-      const pipe: any = await pipeline("token-classification", spec.id, {
-        dtype: "q8",
-        revision: spec.revision,
-      });
+      const out = await build(tf);
       if (cache.refused.length) throw new ModelPinError(cache.refused);
-      return pipe;
+      return out;
     } finally {
       // Drop the reference to the model bytes; anything asked for later is refused.
       env.customCache = pinnedModelCache(spec, new Map());
     }
   });
   envTurn = run;
+  return await run;
+}
+
+async function transformersPipeline(
+  spec: NerModelSpec,
+  files: ModelFiles,
+): Promise<TokenClassifier> {
   // deno-lint-ignore no-explicit-any
-  const pipe: any = await run;
+  const pipe: any = await withPinnedModel(
+    spec,
+    files,
+    (tf) => tf.pipeline("token-classification", spec.id, { dtype: "q8", revision: spec.revision }),
+  );
   return {
     tokenize: (t: string) => pipe.tokenizer.tokenize(t) as string[],
     classify: async (t: string) => (await pipe(t)) as TokenPrediction[],

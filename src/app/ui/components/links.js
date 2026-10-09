@@ -1,4 +1,5 @@
-// The only web pages casefile links to (free legal help, the Claude Code install guide). Must match src/app/links.ts, which is
+// The only web pages casefile links to (free legal help, the Claude Code install guide, TypeSafe's
+// terms for Jev). Must match src/app/links.ts, which is
 // the authority: the server opens them in the user's own browser (POST /api/open-link), so the app
 // itself never loads anything from the internet. tests/ui_model_test.ts allows exactly these.
 import { h } from "../dom.js";
@@ -19,6 +20,16 @@ export const EXTERNAL_LINKS = {
   claude_code_setup: {
     url: "https://docs.claude.com/en/docs/claude-code/setup",
     label: "Claude Code install guide",
+  },
+  // Settings → Extra checks: TypeSafe's terms for Jev, read before turning it on (ADR 14,
+  // PD-AI 4.18). `JEV_TERMS` in core/judge/jev.ts names the same pages.
+  typesafe_privacy: {
+    url: "https://typesafe.ai/legal/privacy-policy",
+    label: "TypeSafe privacy policy",
+  },
+  typesafe_legal: {
+    url: "https://docs.typesafe.ai/legal",
+    label: "TypeSafe legal terms",
   },
 };
 

@@ -8,6 +8,7 @@ import {
   announce,
   Callout,
   confirmDialog,
+  ExternalLink,
   Icon,
   PassField,
   RecoveryKeyPanel,
@@ -87,13 +88,14 @@ function fill(sec, ...children) {
 
 /** @param {HTMLElement} main @param {Record<string, string>} _params @param {any} ctx */
 export default async function view(main, _params, ctx) {
-  const [st, plan, cc, people] = await Promise.all([
+  const [st, plan, cc, people, judge] = await Promise.all([
     api("GET", "/api/settings"),
     api("GET", "/api/plan"),
     api("GET", "/api/claude-code"),
     api("GET", "/api/people?group=people").catch(() => null),
+    api("GET", "/api/judge").catch(() => null),
   ]);
-  const S = { st, plan, cc, people: people?.entities ?? [], llmCheck: null };
+  const S = { st, plan, cc, people: people?.entities ?? [], llmCheck: null, judge };
 
   const secs = Object.fromEntries(SECTIONS.map(([id]) => [id, null]));
   const titles = {
@@ -856,34 +858,230 @@ export default async function view(main, _params, ctx) {
     });
   };
 
-  // ── Extra checks (deferred: only the built-in checks exist) ─────────────
+  // ── Extra checks (ADR 14) ───────────────────────────────────────────────
+  const saveJudge = async (patch) => {
+    S.judge = await api("PUT", "/api/judge", patch);
+  };
   const renderExtra = () => {
+    const J = S.judge;
+    if (!J) {
+      fill(secs.extra, h("p", {}, "casefile couldn’t load the extra checks. Reload to try again."));
+      return;
+    }
+    const tuned = (b) =>
+      J[b]?.calibrated === false
+        ? " Not tuned on casefile’s test sentences yet, so it may point out too much or too little."
+        : "";
+    const choices = [
+      ["off", "Off: only the built-in checks", "Nothing else looks at Claude’s work.", false],
+      ["local", "On this computer", J.local.summary + tuned("local"), false],
+      [
+        "llm",
+        "The language model on this computer",
+        J.llm.summary + tuned("llm"),
+        !J.llm.setUp,
+      ],
+      [
+        "jev",
+        "Jev by TypeSafe",
+        `${J.jev.summary}${tuned("jev")}`,
+        J.backend !== "jev",
+      ],
+    ];
+    const radios = choices.map(([value, title, sub, disabled]) => {
+      const id = `set-judge-${value}`;
+      const input = h("input", {
+        type: "radio",
+        name: "set-judge",
+        id,
+        value,
+        checked: J.backend === value,
+        disabled,
+        "aria-describedby": `${id}-d`,
+      });
+      input.addEventListener(
+        "change",
+        act(async () => {
+          await saveJudge({ backend: value });
+          announce(`Extra checks: ${title}. Recorded in the Log.`);
+          renderExtra();
+          secs.extra.querySelector(`#${id}`)?.focus();
+        }),
+      );
+      return h(
+        "div",
+        { class: "status-row" },
+        h("span", { class: "status-row-lead" }, input),
+        h(
+          "span",
+          { class: "status-row-text" },
+          h("label", { for: id, class: "status-row-title" }, title),
+          h("span", { id: `${id}-d`, class: "status-row-sub muted" }, sub),
+        ),
+        h("span"),
+      );
+    });
+    const result = h("p", { class: "muted", role: "status" });
+    const key = h("input", {
+      id: "set-jev-key",
+      type: "password",
+      autocomplete: "off",
+      spellcheck: "false",
+      placeholder: J.jev.hasKey ? "Saved (type a new one to replace it)" : "",
+    });
+    const jevOn = J.backend === "jev";
     fill(
       secs.extra,
       h(
         "p",
         { class: "set-lede" },
-        "casefile checks Claude’s work for you — for example, whether the names, dates and numbers in a chronology entry appear in the lines it cites.",
+        "casefile checks Claude’s work for you — for example, whether the names, dates and numbers in a chronology entry appear in the lines it cites. An extra check can also point out a sentence that gives feelings or opinions, a note that may not match its cited lines, or a shared document that may not be yours. It only points things out: it never marks anything as checked, and it can be wrong both ways.",
       ),
       h(
-        "ul",
+        "div",
         { class: "set-box" },
         StatusRow({
+          tag: "div",
           level: "ok",
           title: "Built in: names, dates and numbers, on this computer",
           sub: "Matches them word for word against the cited lines. Nothing leaves this computer.",
-          meta: "On",
+          meta: "Always on",
         }),
-        StatusRow({
-          title: "A language model on this computer",
-          sub: "Would also notice when Claude has reworded a fact.",
-          meta: "Not available yet",
-        }),
-        StatusRow({
-          title: "Jev by TypeSafe",
-          sub: "Would only see text with names replaced.",
-          meta: "Not available yet",
-        }),
+      ),
+      h(
+        "fieldset",
+        { class: "set-box" },
+        h("legend", {}, "Where extra checks run"),
+        radios,
+      ),
+      h(
+        "div",
+        { class: "hstack set-actions" },
+        h("button", {
+          type: "button",
+          class: "btn btn-lg",
+          disabled: J.backend === "off" || undefined,
+          onclick: act(async () => {
+            result.textContent = "Testing…";
+            try {
+              const r = await api("POST", "/api/judge/test");
+              result.textContent = r.message;
+            } catch (e) {
+              result.textContent = errorText(e);
+            }
+          }),
+        }, "Test the connection"),
+        h(
+          "span",
+          { class: "muted" },
+          "Asks about an invented sentence. Nothing from your case is sent.",
+        ),
+      ),
+      result,
+      h(
+        "div",
+        { class: "vstack set-riskybox" },
+        h("h3", {}, "Jev by TypeSafe"),
+        h(
+          "p",
+          {},
+          "Jev is an AI run by TypeSafe AI on its own computers in the United States. If you turn it on, casefile sends it only text with names replaced, from documents shared with Claude: never your original documents and never anything kept from Claude. TypeSafe says it does not train on what it is sent. It does not say how long it keeps it.",
+        ),
+        h(
+          "p",
+          {},
+          `casefile last checked TypeSafe’s terms on ${
+            whenDay(J.jev.termsChecked, false)
+          }. Read them before you turn Jev on: `,
+          ExternalLink("typesafe_privacy"),
+          " and ",
+          ExternalLink("typesafe_legal"),
+          ".",
+        ),
+        h(
+          "p",
+          {},
+          "Turning Jev on or off is recorded in the Log, and “If the Court asks” lists Jev as a second AI tool.",
+        ),
+        h(
+          "form",
+          {
+            class: "vstack",
+            "aria-label": "Jev key",
+            onsubmit: act(async (ev) => {
+              ev.preventDefault();
+              if (!key.value.trim()) {
+                announce("Type your Jev key first.");
+                key.focus();
+                return;
+              }
+              await saveJudge({ jevKey: key.value.trim() });
+              key.value = "";
+              announce("Jev key saved. It stays in this case’s locked folder.");
+              renderExtra();
+              secs.extra.querySelector("#set-jev-key")?.focus();
+            }),
+          },
+          h(
+            "div",
+            { class: "set-field" },
+            h("label", { for: key.id }, J.jev.hasKey ? "Jev key (saved)" : "Jev key"),
+            key,
+          ),
+          h(
+            "div",
+            { class: "hstack set-actions" },
+            h("button", { type: "submit", class: "btn btn-lg" }, "Save key"),
+            J.jev.hasKey
+              ? h("button", {
+                type: "button",
+                class: "btn btn-lg",
+                onclick: act(async () => {
+                  await saveJudge({ jevKey: null });
+                  announce("Jev key removed. Jev is off. Recorded in the Log.");
+                  renderExtra();
+                  secs.extra.querySelector("#set-jev-key")?.focus();
+                }),
+              }, "Remove key")
+              : null,
+          ),
+        ),
+        jevOn
+          ? h(
+            "div",
+            { class: "set-risky" },
+            h("p", {}, Flag("On"), ` Jev is on, since ${whenDay(J.jev.onSince, false)}.`),
+            h(
+              "div",
+              {},
+              h("button", {
+                type: "button",
+                class: "btn btn-lg",
+                "aria-label": "Turn off Jev",
+                onclick: act(async () => {
+                  await saveJudge({ backend: "local" });
+                  announce(
+                    "Jev turned off. Extra checks run on this computer. Recorded in the Log.",
+                  );
+                  renderExtra();
+                  secs.extra.querySelector("#set-judge-local")?.focus();
+                }),
+              }, "Turn off"),
+            ),
+          )
+          : TypedConfirm({
+            id: "set-jev-on",
+            label: "Send text with names replaced to Jev for extra checks.",
+            phrase: J.confirmPhrase,
+            disabled: !J.jev.hasKey,
+            onConfirm: async () => {
+              await saveJudge({ backend: "jev", confirm: J.confirmPhrase });
+              announce("Jev turned on. Recorded in the AI-use log.");
+              renderExtra();
+              secs.extra.querySelector("#set-judge-jev")?.focus();
+            },
+          }),
+        !J.jev.hasKey && !jevOn ? h("p", { class: "muted" }, "Save your key first.") : null,
       ),
     );
   };

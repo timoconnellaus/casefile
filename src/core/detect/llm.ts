@@ -432,14 +432,111 @@ export interface LlmOptions {
   chunkChars?: number;
 }
 
+/**
+ * One OpenAI-compatible chat-completions endpoint (ADR 12), shared by the LLM name pass and the
+ * extra checks' language model (ADR 14). Asks for JSON (`response_format`) and no thinking
+ * (`"reasoning_effort": "none"`): a thinking model such as Qwen 3.6 in LM Studio does not finish a
+ * chunk within 120 s with thinking on, and takes about 20 s without. A server that rejects either
+ * field (400) is asked again without it, and the working combination is remembered.
+ */
+export class ChatCompletions {
+  private jsonMode = true;
+  private noReasoning = true;
+  private fetchFn: FetchFn;
+
+  constructor(
+    readonly settings: LlmEndpointSettings,
+    private opts: { fetch?: FetchFn; timeoutMs?: number } = {},
+  ) {
+    this.fetchFn = opts.fetch ?? fetch;
+  }
+
+  async complete(messages: { role: "system" | "user"; content: string }[]): Promise<string> {
+    let res = await this.post(messages, this.jsonMode, this.noReasoning);
+    if (res.status === 400) {
+      // Some servers reject response_format, others reasoning_effort: drop one, then the other,
+      // then both, and remember the first that is accepted.
+      const tries: [boolean, boolean][] = [];
+      if (this.jsonMode) tries.push([false, this.noReasoning]);
+      if (this.noReasoning) tries.push([this.jsonMode, false]);
+      if (this.jsonMode && this.noReasoning) tries.push([false, false]);
+      for (const [json, noReasoning] of tries) {
+        await res.body?.cancel();
+        res = await this.post(messages, json, noReasoning);
+        if (res.status !== 400) {
+          this.jsonMode = json;
+          this.noReasoning = noReasoning;
+          break;
+        }
+      }
+    }
+    if (!res.ok) {
+      // Don't echo the server's reply: it may quote the document text back.
+      await res.body?.cancel();
+      throw new Error(`LLM endpoint answered ${res.status} ${res.statusText}`.trim());
+    }
+    const body = await res.json().catch(() => null) as
+      | { choices?: { message?: { content?: unknown } }[] }
+      | null;
+    const content = body?.choices?.[0]?.message?.content;
+    if (typeof content !== "string") throw new Error("LLM endpoint reply had no message content");
+    return content;
+  }
+
+  private async post(
+    messages: { role: string; content: string }[],
+    jsonMode: boolean,
+    noReasoning: boolean,
+  ): Promise<Response> {
+    const timeoutMs = this.opts.timeoutMs ?? 120_000;
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (this.settings.apiKey) headers.Authorization = `Bearer ${this.settings.apiKey}`;
+    const body: Record<string, unknown> = {
+      model: this.settings.model,
+      temperature: 0,
+      stream: false,
+      messages,
+    };
+    if (jsonMode) body.response_format = { type: "json_object" };
+    if (noReasoning) body.reasoning_effort = "none";
+    const url = `${this.settings.baseUrl.replace(/\/+$/, "")}/chat/completions`;
+    const ac = new AbortController();
+    const timer = setTimeout(() => ac.abort(), timeoutMs);
+    try {
+      const res = await this.fetchFn(url, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+        signal: ac.signal,
+        // Never follow redirects: a 307/308 would re-send the document text to wherever it points.
+        redirect: "error",
+      });
+      // Read the body inside the timeout window, so a server that stalls mid-reply also times out.
+      const buf = await res.arrayBuffer();
+      return new Response(buf.byteLength ? buf : null, {
+        status: res.status,
+        statusText: res.statusText,
+      });
+    } catch (e) {
+      if (ac.signal.aborted) {
+        throw new Error(`LLM endpoint did not answer within ${Math.round(timeoutMs / 1000)} s`);
+      }
+      throw new Error(`LLM endpoint unreachable: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+}
+
 export class LlmDetector implements Detector {
   readonly name = "llm";
   readonly findsNames = true;
-  private jsonMode = true;
   private fetchFn: FetchFn;
+  private chat: ChatCompletions;
 
   constructor(readonly settings: LlmEndpointSettings, private opts: LlmOptions = {}) {
     this.fetchFn = opts.fetch ?? fetch;
+    this.chat = new ChatCompletions(settings, { fetch: this.fetchFn, timeoutMs: opts.timeoutMs });
   }
 
   /**
@@ -479,74 +576,14 @@ export class LlmDetector implements Detector {
     const out: Span[] = [];
     for (const chunk of chunkText(text, this.opts.chunkChars ?? 3000)) {
       if (!chunk.text.trim()) continue;
-      const reply = await this.complete(chunk.text);
+      const reply = await this.chat.complete([
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: `Document extract:\n\n${chunk.text}` },
+      ]);
       for (const s of spansFromReply(chunk.text, extractJson(reply))) {
         out.push({ ...s, start: s.start + chunk.offset, end: s.end + chunk.offset });
       }
     }
     return out;
-  }
-
-  private async complete(chunk: string): Promise<string> {
-    let res = await this.post(chunk, this.jsonMode);
-    if (res.status === 400 && this.jsonMode) {
-      // Some servers reject response_format; ask again without it and remember.
-      await res.body?.cancel();
-      this.jsonMode = false;
-      res = await this.post(chunk, false);
-    }
-    if (!res.ok) {
-      // Don't echo the server's reply: it may quote the document text back.
-      await res.body?.cancel();
-      throw new Error(`LLM endpoint answered ${res.status} ${res.statusText}`.trim());
-    }
-    const body = await res.json().catch(() => null) as
-      | { choices?: { message?: { content?: unknown } }[] }
-      | null;
-    const content = body?.choices?.[0]?.message?.content;
-    if (typeof content !== "string") throw new Error("LLM endpoint reply had no message content");
-    return content;
-  }
-
-  private async post(chunk: string, jsonMode: boolean): Promise<Response> {
-    const timeoutMs = this.opts.timeoutMs ?? 120_000;
-    const headers: Record<string, string> = { "Content-Type": "application/json" };
-    if (this.settings.apiKey) headers.Authorization = `Bearer ${this.settings.apiKey}`;
-    const body: Record<string, unknown> = {
-      model: this.settings.model,
-      temperature: 0,
-      stream: false,
-      messages: [
-        { role: "system", content: SYSTEM_PROMPT },
-        { role: "user", content: `Document extract:\n\n${chunk}` },
-      ],
-    };
-    if (jsonMode) body.response_format = { type: "json_object" };
-    const url = `${this.settings.baseUrl.replace(/\/+$/, "")}/chat/completions`;
-    const ac = new AbortController();
-    const timer = setTimeout(() => ac.abort(), timeoutMs);
-    try {
-      const res = await this.fetchFn(url, {
-        method: "POST",
-        headers,
-        body: JSON.stringify(body),
-        signal: ac.signal,
-        // Never follow redirects: a 307/308 would re-send the document text to wherever it points.
-        redirect: "error",
-      });
-      // Read the body inside the timeout window, so a server that stalls mid-reply also times out.
-      const buf = await res.arrayBuffer();
-      return new Response(buf.byteLength ? buf : null, {
-        status: res.status,
-        statusText: res.statusText,
-      });
-    } catch (e) {
-      if (ac.signal.aborted) {
-        throw new Error(`LLM endpoint did not answer within ${Math.round(timeoutMs / 1000)} s`);
-      }
-      throw new Error(`LLM endpoint unreachable: ${e instanceof Error ? e.message : String(e)}`);
-    } finally {
-      clearTimeout(timer);
-    }
   }
 }

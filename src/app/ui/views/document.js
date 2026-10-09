@@ -13,6 +13,7 @@ import {
   Callout,
   ConfirmBar,
   EmptyState,
+  ExtraCheck,
   Field,
   Icon,
   Key,
@@ -575,6 +576,10 @@ function OriginSection(doc, ctx, rerender) {
         : null,
       radios,
     ),
+    // A second opinion on where a shared document came from (ADR 14): flags only.
+    doc.state === "shared"
+      ? ExtraCheck({ type: "document", id: doc.id, label: `where ${doc.id} came from` })
+      : null,
     h(
       "p",
       { class: "doc-guidance" },

@@ -148,3 +148,24 @@ case. At start, casefile calls `Deno.autoUpdate` with no URL, only to hear about
   work from then on.
 - The open item under Consequences above (the first live update through GitHub's redirect) is
   closed: it failed, for the reason above.
+
+## Amendment: the macOS build runs on Namespace (2026-10-09)
+
+The `build` job (CI again, `deno task desktop`, the smoke test, packaging and the bsdiff patches)
+moves from GitHub's `macos-14` runner to a Namespace runner, profile `casefile-macos` (Apple
+silicon, 6 vCPU, 14 GB). The patch step took about 14 minutes on GitHub's runner with two earlier
+releases to patch from, and grows with each one. The owner chose speed over GitHub's free
+public-repo minutes for this job only.
+
+**What this changes in the trust model.** The app that gets signed is now built on a third party's
+machine: Namespace, through its GitHub app, which has Actions and Administration write access to
+the owner's repositories. A compromised Namespace runner could change the build before the
+`publish` job signs it, and the signature would then vouch for it. The signing key itself never
+reaches Namespace: `publish` still runs on a GitHub-hosted runner in the `release` environment and
+only receives the build artifact. CI on pull requests and the `version` and `publish` jobs stay on
+GitHub-hosted runners.
+
+**Consequences.**
+- Namespace joins GitHub in the set of parties whose compromise could ship code to the app that
+  holds the case.
+- Returning to GitHub's runner is a one-line change (`runs-on: macos-14`).

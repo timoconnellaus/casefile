@@ -104,6 +104,12 @@ Deno.test("merging is refused for an entry into itself or one that doesn't exist
   await publishForm(s);
   await assertRejects(() => s.mergeEntity("father", "father"), InvalidInputError);
   await assertRejects(() => s.mergeEntity("person_9", "father"), InvalidInputError);
+  // A person can't be merged into a time (or a number into a person).
+  await assertRejects(
+    () => s.mergeEntity("person_1", "other_1"),
+    InvalidInputError,
+    "different kinds",
+  );
   assertEquals(roles(s), ["father", "mother", "other_1", "person_1"]);
   s.close();
 });
@@ -140,6 +146,12 @@ Deno.test("removing is refused for safety-sensitive entries and values another e
     InvalidInputError,
     "Merge this entry",
   );
+  // A longer value with someone else's name inside it would put that name in Claude's notes.
+  s.registry.add({ kind: "other", full: "Anna Thornbury Pty Ltd", role: "other_9" });
+  await assertRejects(() => s.removeEntity("other_9", "x"), InvalidInputError, "contains");
+  // Anything a rule always replaces stays replaced.
+  s.registry.add({ kind: "other", full: "0412 555 019", role: "other_8" });
+  await assertRejects(() => s.removeEntity("other_8", "x"), InvalidInputError, "looks like");
   s.close();
 });
 
@@ -177,6 +189,31 @@ Deno.test("harmless shapes: times, dates and amounts, never a date of birth", ()
   assertEquals(harmlessShape("Kiama Downs", "place"), null);
 });
 
+Deno.test("security: names that look like months or bare numbers are never harmless", () => {
+  for (const v of ["Marcus", "June", "Augustine", "May", "Octavia", "Junee", "Sunday", "12", "7"]) {
+    assertEquals(harmlessShape(v, "other"), null, v);
+  }
+  assertEquals(harmlessShape("June 2025", "other"), "It is an ordinary date.");
+  // Whatever it looks like, a person, number or contact detail is never harmless.
+  for (const k of ["person", "address", "phone", "email", "identifier", "date_of_birth"] as const) {
+    assertEquals(harmlessShape("5:01 PM", k), null, k);
+  }
+});
+
+Deno.test("security: a model detection of a person called June or Marcus is kept", async () => {
+  const dir = join(await tempDir(), "case");
+  const s = await CaseSession.create(dir, PASS, "Test matter", { kdfIterations: 1_000 });
+  s.detectors = [
+    new FakeNameDetector([
+      { text: "June", kind: "person" },
+      { text: "Marcus", kind: "other" },
+    ]),
+  ];
+  const doc = await s.importText({ origin: "mine", title: "N", text: "June met Marcus.\n" });
+  assertEquals(doc.proposals.map((p) => p.text).sort(), ["June", "Marcus"]);
+  s.close();
+});
+
 Deno.test("rules suggest merging a name written backwards and removing a time", async () => {
   const { s } = await newCase();
   await publishForm(s);
@@ -198,6 +235,8 @@ Deno.test("model suggestions are checked: unknown roles, revealing labels and re
   r.add({ kind: "person", full: "Bob Smith", role: "person_2" });
   r.add({ kind: "school", full: "Kiama Downs Public School", role: "school_1" });
   r.add({ kind: "other", full: "5:01 PM", role: "other_1" });
+  // A person whose "name" is a time is still a person: never removed on a suggestion.
+  r.add({ kind: "person", full: "5:01 PM", role: "person_3" });
   const got = checkSuggestions(
     {
       suggestions: [
@@ -207,6 +246,7 @@ Deno.test("model suggestions are checked: unknown roles, revealing labels and re
         { type: "merge", from: "person_9", into: "mother", why: "unknown" },
         { type: "merge", from: "school_1", into: "mother", why: "different kinds" },
         { type: "remove", role: "person_2", why: "not needed" },
+        { type: "remove", role: "person_3", why: "a time" },
         { type: "remove", role: "other_1", why: "A time." },
       ],
     },

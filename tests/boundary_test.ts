@@ -8,6 +8,7 @@ import { fromFileUrl } from "@std/path";
 const ROOT = new URL("../", import.meta.url);
 const FORBIDDEN = [
   "src/core/vault.ts",
+  "src/core/backupfile.ts", // the single-file backup carries the keyfile (ADR 29)
   "src/core/session.ts",
   "src/core/signing.ts",
   "src/core/entities.ts",

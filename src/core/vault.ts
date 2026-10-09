@@ -200,10 +200,86 @@ async function unwrapKey(
 
 async function readKeyFile(dir: string): Promise<KeyFile> {
   const kf: KeyFile = JSON.parse(await Deno.readTextFile(join(dir, KEYFILE)));
-  if (kf.format !== "casefile-vault" || (kf.version !== 1 && kf.version !== 2)) {
-    throw new Error("Unsupported vault format");
-  }
+  if (!isKeyFile(kf)) throw new Error("Unsupported vault format");
   return kf;
+}
+
+function isWrap(w: unknown): w is Wrap {
+  const x = w as Wrap | null;
+  return typeof x?.kdf === "object" && x.kdf !== null && x.kdf.name === "PBKDF2" &&
+    x.kdf.hash === "SHA-256" && Number.isSafeInteger(x.kdf.iterations) &&
+    x.kdf.iterations >= 1 && typeof x.kdf.salt === "string" &&
+    typeof x.wrapped === "object" && x.wrapped !== null &&
+    typeof x.wrapped.iv === "string" && typeof x.wrapped.data === "string";
+}
+
+/** A keyfile this build can read: version 1 or 2, with well-formed wraps. */
+function isKeyFile(kf: unknown): kf is KeyFile {
+  const x = kf as KeyFile | null;
+  return typeof x === "object" && x !== null && x.format === "casefile-vault" &&
+    (x.version === 1 || x.version === 2) && isWrap(x) &&
+    (x.recovery === undefined || isWrap(x.recovery));
+}
+
+/** What unwraps a data key: the passphrase, or a recovery key as the user typed it. */
+export type KeySecret = { passphrase: string } | { recoveryKey: string };
+
+/**
+ * Unwrap the data key from a keyfile held somewhere other than a vault folder (an encrypted
+ * backup's header, ADR 29). Throws WrongPassphraseError or WrongRecoveryKeyError (a recovery key
+ * when the keyfile has none takes the same time, as in `Vault.openWithRecovery`),
+ * MalformedRecoveryKeyError for text that cannot be a recovery key, and a plain Error for a
+ * keyfile this build can't read. The caller must still check the key against data it encrypted:
+ * the keyfile is not authenticated on its own.
+ */
+export async function unwrapKeyFile(kf: unknown, secret: KeySecret): Promise<Bytes> {
+  if (!isKeyFile(kf)) throw new Error("Unsupported vault format");
+  if ("passphrase" in secret) {
+    const raw = await unwrapKey(kf, secret.passphrase, AAD_PASSPHRASE);
+    if (!raw) throw new WrongPassphraseError();
+    return raw;
+  }
+  return await unwrapRecovery(kf, secret.recoveryKey);
+}
+
+async function unwrapRecovery(kf: KeyFile, recoveryKey: string): Promise<Bytes> {
+  const key = parseRecoveryKey(recoveryKey);
+  if (!key) throw new MalformedRecoveryKeyError();
+  const wrap: Wrap = kf.recovery ?? {
+    // No recovery key: spend the same effort on a throwaway derivation, then refuse.
+    kdf: {
+      name: "PBKDF2",
+      hash: "SHA-256",
+      iterations: kf.kdf.iterations,
+      salt: encodeBase64(crypto.getRandomValues(new Uint8Array(16))),
+    },
+    wrapped: { iv: encodeBase64(new Uint8Array(12)), data: encodeBase64(new Uint8Array(48)) },
+  };
+  const rawKey = await unwrapKey(wrap, key, AAD_RECOVERY);
+  key.fill(0);
+  if (!kf.recovery || !rawKey) throw new WrongRecoveryKeyError();
+  return rawKey;
+}
+
+/**
+ * The key that encrypts a single-file backup (ADR 29): derived from the data key with HKDF, so
+ * whatever unwraps the data key opens the backup, and the backup's encryption is never the same
+ * key as the vault files inside it.
+ */
+export async function backupKeyFrom(rawKey: Uint8Array): Promise<CryptoKey> {
+  const base = await crypto.subtle.importKey("raw", bytes(rawKey), "HKDF", false, ["deriveKey"]);
+  return crypto.subtle.deriveKey(
+    {
+      name: "HKDF",
+      hash: "SHA-256",
+      salt: new Uint8Array(32),
+      info: enc.encode("casefile-backup-file"),
+    },
+    base,
+    { name: "AES-GCM", length: 256 },
+    false,
+    ["encrypt", "decrypt"],
+  );
 }
 
 /**
@@ -358,21 +434,8 @@ export class Vault {
    * data key and lose the vault.
    */
   static async openWithRecovery(dir: string, recoveryKey: string): Promise<Vault> {
-    const key = parseRecoveryKey(recoveryKey);
-    if (!key) throw new MalformedRecoveryKeyError();
-    const kf = await readKeyFile(dir);
-    const wrap: Wrap = kf.recovery ?? {
-      // No recovery key: spend the same effort on a throwaway derivation, then refuse.
-      kdf: {
-        name: "PBKDF2",
-        hash: "SHA-256",
-        iterations: kf.kdf.iterations,
-        salt: encodeBase64(crypto.getRandomValues(new Uint8Array(16))),
-      },
-      wrapped: { iv: encodeBase64(new Uint8Array(12)), data: encodeBase64(new Uint8Array(48)) },
-    };
-    const rawKey = await unwrapKey(wrap, key, AAD_RECOVERY);
-    if (!kf.recovery || !rawKey) throw new WrongRecoveryKeyError();
+    if (!parseRecoveryKey(recoveryKey)) throw new MalformedRecoveryKeyError();
+    const rawKey = await unwrapRecovery(await readKeyFile(dir), recoveryKey);
     const vault = new Vault(dir, await Vault.#importDataKey(rawKey), rawKey, await folderId(dir));
     const files = await vault.list();
     if (files.length === 0) throw new VaultCorruptError(KEYFILE);
@@ -450,6 +513,16 @@ export class Vault {
       false,
       ["sign", "verify"],
     );
+  }
+
+  /** The key for this case's single-file backups (ADR 29). */
+  backupKey(): Promise<CryptoKey> {
+    return backupKeyFrom(this.rawKey);
+  }
+
+  /** The keyfile as stored: the data key's wraps, which a single-file backup carries (ADR 29). */
+  async keyFile(): Promise<unknown> {
+    return await readKeyFile(this.dir);
   }
 
   /** Raw key bytes for the AI-use log's hash chain (ADR 8), derived from the data key. */

@@ -1,4 +1,5 @@
 import { assert, assertEquals, assertMatch, assertRejects } from "@std/assert";
+import { chunkText, chunkTextOverlapping } from "../src/core/detect/chunk.ts";
 import { createDetectors } from "../src/core/detect/factory.ts";
 import {
   classifyEndpoint,
@@ -600,6 +601,86 @@ Deno.test("createDetectors builds NER then LLM from case settings", () => {
     createDetectors({ llm: { baseUrl: " ", model: "m" }, nerEnabled: false }).length,
     0,
   );
+});
+
+// ---------------------------------------------------------------------------------------------
+// Chunk overlap
+
+Deno.test("chunkTextOverlapping: chunks repeat about `overlap` characters, start at a word, and cover the text", () => {
+  const words = Array.from({ length: 400 }, (_, i) => `word${i}`);
+  const text = words.join(" ");
+  const chunks = chunkTextOverlapping(text, 300, 40);
+  assert(chunks.length > 1);
+  assertEquals(chunks[0].offset, 0);
+  for (const [i, c] of chunks.entries()) {
+    assertEquals(text.slice(c.offset, c.offset + c.text.length), c.text);
+    assert(c.text.length <= 300);
+    if (i === 0) continue;
+    const prev = chunks[i - 1];
+    const prevEnd = prev.offset + prev.text.length;
+    // Starts inside the previous chunk, no more than `overlap` back, at the start of a word.
+    assert(c.offset < prevEnd && c.offset >= prevEnd - 40, `chunk ${i} overlaps`);
+    assertMatch(text[c.offset - 1], /\s/);
+    assert(c.offset + c.text.length > prevEnd, `chunk ${i} moves on`);
+  }
+  const last = chunks.at(-1)!;
+  assertEquals(last.offset + last.text.length, text.length);
+  // No overlap asked for: the plain chunks.
+  assertEquals(chunkTextOverlapping(text, 300, 0), chunkText(text, 300));
+  // One word longer than a chunk: no whitespace to start at, so no overlap, but still covered.
+  const long = "x".repeat(700);
+  assertEquals(chunkTextOverlapping(long, 300, 40).map((c) => c.text).join(""), long);
+});
+
+Deno.test("LLM pass: a name straddling a chunk boundary is found once, at its offset in the whole text", async () => {
+  const name = PEOPLE.child1; // "Mia Okafor"
+  // The first chunk (3000 characters) breaks at the space inside the name: "… Mia " | "Okafor …".
+  const text = `${"word ".repeat(599)}${name} attended the appointment. ${
+    "Nothing else happened. ".repeat(20)
+  }`;
+  const at = text.indexOf(name);
+  assert(at < 3000 && at + name.length > 3000, "the name straddles the boundary");
+  // Without overlap the name is cut in two, and neither chunk holds it whole.
+  const plain = chunkText(text, 3000);
+  assert(plain.length === 2 && !plain.some((c) => c.text.includes(name)));
+  // A model that reports the name only when its chunk holds all of it.
+  const srv = fakeServer((_body, user) =>
+    completion(
+      entities(user.includes(name) ? [{ text: name, kind: "person", role: "child_1" }] : []),
+    )
+  );
+  try {
+    const det = new LlmDetector({ baseUrl: srv.baseUrl, model: "m", trustLocalServer: true });
+    const spans = await det.detect(text);
+    assertEquals(spans.map((s) => [s.start, s.end, s.text]), [[at, at + name.length, name]]);
+  } finally {
+    await srv.close();
+  }
+});
+
+Deno.test("LLM pass: a name inside the overlap, reported by both chunks, is kept once", async () => {
+  const name = PEOPLE.mother;
+  const filler = "Some ordinary words here. ".repeat(10); // 260 characters
+  // Chunks of 200 with 50 overlapping: the name sits where two chunks meet.
+  const text = `${filler.slice(0, 160)} ${name} ${filler}`;
+  const srv = fakeServer((_body, user) =>
+    completion(
+      entities(user.includes(name) ? [{ text: name, kind: "person", role: "mother" }] : []),
+    )
+  );
+  try {
+    const det = new LlmDetector({ baseUrl: srv.baseUrl, model: "m", trustLocalServer: true }, {
+      chunkChars: 200,
+      overlapChars: 50,
+    });
+    const spans = await det.detect(text);
+    const hits = chat(srv).filter((s) => JSON.stringify(s.body!.messages).includes(name)).length;
+    assert(hits >= 2, "both chunks saw the name");
+    const at = text.indexOf(name);
+    assertEquals(spans.map((s) => [s.start, s.end]), [[at, at + name.length]]);
+  } finally {
+    await srv.close();
+  }
 });
 
 // ---------------------------------------------------------------------------------------------

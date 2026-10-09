@@ -1,5 +1,5 @@
 import { ENTITY_KINDS, type EntityKind } from "../kinds.ts";
-import { chunkText } from "./chunk.ts";
+import { chunkTextOverlapping } from "./chunk.ts";
 import type { Detector, Span } from "./types.ts";
 
 /**
@@ -430,6 +430,11 @@ export interface LlmOptions {
   timeoutMs?: number;
   /** Characters per request. Default 3000. */
   chunkChars?: number;
+  /**
+   * Characters each chunk repeats from the end of the one before (about; it starts at a word).
+   * Default 200, so a name cut by a chunk boundary is whole in the next chunk.
+   */
+  overlapChars?: number;
 }
 
 /**
@@ -574,14 +579,26 @@ export class LlmDetector implements Detector {
     const p = LlmDetector.permitted(where, this.settings);
     if (!p.ok) throw new Error(`LLM pass refused: ${p.why}`);
     const out: Span[] = [];
-    for (const chunk of chunkText(text, this.opts.chunkChars ?? 3000)) {
+    // Chunks overlap, so a value in the overlap can be found twice: keep the first finding at
+    // each absolute position.
+    const seen = new Set<string>();
+    const size = this.opts.chunkChars ?? 3000;
+    // At most a quarter of a chunk, so small test chunks still move on.
+    const overlap = Math.min(this.opts.overlapChars ?? 200, Math.floor(size / 4));
+    const chunks = chunkTextOverlapping(text, size, overlap);
+    for (const chunk of chunks) {
       if (!chunk.text.trim()) continue;
       const reply = await this.chat.complete([
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: `Document extract:\n\n${chunk.text}` },
       ]);
       for (const s of spansFromReply(chunk.text, extractJson(reply))) {
-        out.push({ ...s, start: s.start + chunk.offset, end: s.end + chunk.offset });
+        const start = s.start + chunk.offset;
+        const end = s.end + chunk.offset;
+        const key = `${start}:${end}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        out.push({ ...s, start, end });
       }
     }
     return out;

@@ -452,6 +452,11 @@ input.people-form-input {
   gap: var(--sp-2);
 }
 
+/* A long entry name in a select must not widen the page on a phone. */
+.people-alias-row select {
+  max-width: 100%;
+}
+
 .people-aliases {
   list-style: none;
   margin: 0;

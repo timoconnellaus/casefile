@@ -65,8 +65,9 @@ hash -r
 deno --version | head -1
 
 # 4. Headless Chromium for the browser checks (`deno task browsercheck`), with its system
-#    libraries. Browser scripts launch it with `executablePath: Deno.env.get("CHROME_PATH")` and
-#    `--no-sandbox`, or fall back to Playwright's own lookup. Each session runs the app on its own
+#    libraries. CHROME_PATH is for `deno task browsercheck` (scripts/browsercheck.ts), which
+#    launches it with `executablePath: Deno.env.get("CHROME_PATH")` and `--no-sandbox`, or falls
+#    back to Playwright's own lookup. Each session runs the app on its own
 #    --dir, CASEFILE_CONFIG_DIR and port. Playwright installs into PLAYWRIGHT_BROWSERS_PATH when
 #    the environment sets it (Anthropic's cloud uses /opt/pw-browsers), otherwise
 #    ~/.cache/ms-playwright. Prefer full Chromium and fall back to the headless shell.

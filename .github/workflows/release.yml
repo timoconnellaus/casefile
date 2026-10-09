@@ -1,33 +1,68 @@
-# Desktop releases (ADR 23, docs/RELEASING.md). Pushing a tag vMAJOR.MINOR.PATCH:
-#   build    (macOS): ci, build dist/casefile.app at that version, zip it, make update patches
-#            from the last three releases and check each rebuilds this runtime exactly.
-#   publish  (the `release` environment: waits for the owner's approval; the only job that can
-#            read the signing key): sign latest.json and publish the GitHub release. The app
-#            fetches latest.json from the latest release and refuses it unless the signature is
-#            good.
+# Desktop releases (ADR 23, docs/RELEASING.md). Every push to main that changes the app releases
+# it, as the next version (scripts/release/next_version.ts: PATCH, or MINOR/MAJOR when a commit
+# says [minor]/[major]):
+#   build    (macOS): ci, build dist/casefile.app at that version, smoke-test it, zip it, make
+#            update patches from the last three releases and check each rebuilds this runtime
+#            exactly.
+#   publish  (the `release` environment, the only job that can read the signing key; it waits for
+#            approval if the environment has required reviewers): sign latest.json and publish the
+#            GitHub release, which tags the commit. The app fetches latest.json from the latest
+#            release and refuses it unless the signature is good.
+# Nothing is released until the one-time setup has put the public key in update_config.ts.
 name: release
 on:
   push:
-    tags: ["v*.*.*"]
+    branches: [main]
+    paths:
+      - "src/**"
+      - "deno.json"
+      - "deno.lock"
+      - "scripts/build_desktop.ts"
+      - "scripts/release/**"
+      - ".github/workflows/release.yml"
+  workflow_dispatch:
 permissions:
   contents: read
+# One release at a time, in order; a push that arrives meanwhile waits (the latest one wins).
 concurrency:
   group: release
   cancel-in-progress: false
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.7
+      - id: v
+        run: |
+          if grep -q 'UPDATE_PUBLIC_KEY: string | null = null' src/app/update_config.ts; then
+            echo "::notice::Updates aren't set up yet (docs/RELEASING.md, one-time setup): not releasing."
+            exit 0
+          fi
+          VERSION=$(deno run --allow-read --allow-run scripts/release/next_version.ts)
+          [ -z "$VERSION" ] && echo "::notice::This commit is already released." && exit 0
+          echo "Releasing $VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
   build:
+    needs: version
+    if: needs.version.outputs.version != ''
     runs-on: macos-14
     env:
       GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - uses: denoland/setup-deno@v2
         with:
           deno-version: v2.9.7
-      - name: Version from the tag
+      - name: Set the version
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
           deno eval 'const p = "deno.json"; const j = JSON.parse(Deno.readTextFileSync(p)); j.version = Deno.args[0]; Deno.writeTextFileSync(p, JSON.stringify(j, null, 2) + "\n");' "$VERSION"
       - run: deno task ci
       - run: brew install bsdiff
@@ -65,13 +100,14 @@ jobs:
           path: out/
           retention-days: 7
   publish:
-    needs: build
+    needs: [version, build]
     runs-on: ubuntu-latest
     environment: release
     permissions:
       contents: write
     env:
       GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ needs.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
       - uses: denoland/setup-deno@v2
@@ -84,10 +120,10 @@ jobs:
       - name: Sign latest.json
         env:
           CASEFILE_UPDATE_SIGNING_KEY: ${{ secrets.CASEFILE_UPDATE_SIGNING_KEY }}
-        run: deno task release:manifest --version "${GITHUB_REF_NAME#v}" --dir out $(cat out/patches.args)
+        run: deno task release:manifest --version "$VERSION" --dir out $(cat out/patches.args)
       - name: Installer
         run: sed "s|__REPO__|${GITHUB_REPOSITORY}|" scripts/install.sh > out/install.sh
       - name: Publish
         run: |
-          gh release create "$GITHUB_REF_NAME" --title "casefile ${GITHUB_REF_NAME#v}" --generate-notes \
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "casefile $VERSION" --generate-notes \
             out/casefile-macos-arm64.zip out/latest.json out/install.sh $(ls out/patch-*.bin 2>/dev/null)

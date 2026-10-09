@@ -7,30 +7,29 @@ reasoning are in [ADR 23](adr/0023-desktop-updates-from-signed-github-releases.m
 
 ## Shipping a change
 
+Merging a pull request into `main` releases it.
+
 1. Open a pull request from your branch. GitHub runs `deno task ci`, and the PR is merged once it
    is green.
-2. Tag the merged `main` with the next version and push the tag:
-
-   ```sh
-   gh release list --limit 1          # the last version
-   git fetch origin && git tag v0.4.0 origin/main && git push origin v0.4.0
-   ```
-
-   A fix bumps PATCH and a feature bumps MINOR. CI sets the version from the tag; `version` in
-   `deno.json` does not need editing.
-3. The `release` workflow (`.github/workflows/release.yml`) runs:
+2. The push to `main` starts the `release` workflow (`.github/workflows/release.yml`). It runs only
+   if the push changed the app (`src/`, `deno.json`, `deno.lock`, the build and release scripts, or
+   the workflow itself); docs-only merges don't release. One release runs at a time; pushes that
+   arrive meanwhile wait, and the latest of them is released next.
+   - **version**: the last `vX.Y.Z` tag, bumped (`scripts/release/next_version.ts`). PATCH by
+     default. If a commit since the last release (the PR title counts) contains `[minor]` or
+     `[major]`, it bumps that instead.
    - **build** (macOS): `deno task ci`, then `deno task desktop` at that version, then a smoke test
-     that launches the app and checks it reports its version. It zips the app and makes update
+     that launches the app and checks it reports that version. It zips the app and makes update
      patches from the last three releases, checking that each one rebuilds this version's runtime
      byte for byte.
-   - **publish** (the `release` environment): **waits for the owner's approval**. This is the only
-     job that can read the signing key. It signs `latest.json` and publishes the release with the
-     app zip, the patches, `latest.json` and `install.sh`.
-4. The owner approves it under Actions → release → Review deployments; the GitHub mobile app works
-   too. Within an hour, or at the next launch, the app offers the update.
+   - **publish** (the `release` environment, the only job that can read the signing key): signs
+     `latest.json` and publishes the release, which tags the commit. It holds the app zip, the
+     patches, `latest.json` and `install.sh`.
+3. Within an hour, or at the next launch, the app offers the update.
 
 An app older than the last three releases gets no patch. It stays on its version until it is
-reinstalled with `install.sh`.
+reinstalled with `install.sh`. To release without a push (for example, after fixing the setup),
+run the workflow by hand: Actions → release → Run workflow.
 
 ## One-time setup
 
@@ -38,8 +37,13 @@ Done once, when the repo is first set up. Until all of it is done, `UPDATE_REPO`
 `UPDATE_PUBLIC_KEY` in `src/app/update_config.ts` is null, and the app never checks for updates.
 
 1. **The `release` environment.** On GitHub, go to Settings → Environments → New environment and
-   name it `release`. Under Required reviewers add the owner and enable "Prevent self-review" if
-   offered. Under Deployment branches and tags, allow only tags matching `v*.*.*`.
+   name it `release`. Under Deployment branches and tags, allow only `main`. Required reviewers
+   are optional:
+   - Without them, every merge to `main` reaches the app with no person in between. PRs are also
+     merged automatically once green (`/babysitter`), so anything that gets a green PR merged
+     ships to the app that holds the case.
+   - With the owner as a required reviewer, each release waits for one tap of Approve in GitHub
+     (the mobile app works).
 2. **The signing key.** In a checkout of `main`, run:
 
    ```sh
@@ -54,8 +58,8 @@ Done once, when the repo is first set up. Until all of it is done, `UPDATE_REPO`
 4. **Pin the actions.** In `release.yml`, replace `actions/checkout@v4`, `denoland/setup-deno@v2`,
    `actions/upload-artifact@v4` and `actions/download-artifact@v4` with their full commit SHAs. A
    moved tag must not be able to change what runs next to the signing key.
-5. **The first release.** Tag `v0.2.0` (or the next version) as above. It has no patches, because
-   there is nothing to patch from.
+5. **The first release.** Merging the setup PR (steps 2–4) releases deno.json's `version` (bump it
+   in that PR, e.g. to `0.2.0`). It has no patches, because there is nothing to patch from.
 6. **Install it.** Quit any casefile that is running. Then:
 
    ```sh
@@ -64,7 +68,7 @@ Done once, when the repo is first set up. Until all of it is done, `UPDATE_REPO`
 
    Downloaded with curl, the app carries no quarantine flag, so macOS opens it without an Apple
    Developer ID. Updates after that arrive as signed patches inside the app.
-7. **Check the first real update.** Ship a small change as `v0.2.1` and watch for:
+7. **Check the first real update.** Merge a small change (it releases `0.2.1`) and watch for:
    - the app offering it;
    - **Restart to update** bringing it back as 0.2.1;
    - a backup in `~/Library/Application Support/casefile/backups/<case>/`;

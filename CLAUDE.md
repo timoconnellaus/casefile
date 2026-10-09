@@ -37,7 +37,7 @@ scripts/cloud-setup.sh   # setup script for a Claude Code cloud environment (pas
 
 The repo is public (github.com/timoconnellaus/casefile). The private history before it is kept
 locally as the tag `archive/pre-public`: never merge, rebase onto or push anything containing it (a
-local pre-push hook refuses), and never push `use-*` tags. Releases are `vMAJOR.MINOR.PATCH` tags.
+local pre-push hook refuses), and never push `use-*` tags. Releases (`vX.Y.Z`) are made by CI.
 
 When a change is finished and the user wants it in their app, do all of this without asking how
 (details and the one-time setup are in `docs/RELEASING.md`):
@@ -51,15 +51,16 @@ When a change is finished and the user wants it in their app, do all of this wit
 3. Push and open a pull request: `git push -u origin <branch>`, then `gh pr create --fill`. GitHub
    runs `deno task ci` on it. It is merged on GitHub once green, by the user or by
    `/loop /babysitter`. Don't merge into the local `main` by hand.
-4. Release once it is merged: tag the merged `main` with the next version (`gh release list` shows
-   the last; a fix bumps PATCH, a feature MINOR) and push the tag:
-   `git fetch origin && git tag vX.Y.Z origin/main && git push origin vX.Y.Z`. The `release`
-   workflow builds, smoke-tests and makes the update patches, then waits for the user's approval.
-5. Tell the user: approve the release on GitHub (Actions → release → Review deployments), then
-   within an hour (or at the next launch) casefile shows "casefile X.Y.Z is ready" — click **Restart
-   to update** and enter the passphrase. The new version backs the case up before it opens it, and
-   installs its CLI. If the generated CLAUDE.md or settings changed, they restore them in Settings →
-   Claude Code in this folder.
+4. Merging releases it: every push to `main` that changes the app runs the `release` workflow, which
+   works out the next version (PATCH; put `[minor]` or `[major]` in the PR title for more), builds,
+   smoke-tests, makes update patches, signs and publishes. Don't tag by hand. A PR that only changes
+   docs doesn't release.
+5. Tell the user it's on its way: within an hour of the release (or at the next launch) casefile
+   shows "casefile X.Y.Z is ready" — click **Restart to update** and enter the passphrase. If the
+   `release` environment requires approval, they approve it first (Actions → release → Review
+   deployments). The new version backs the case up before it opens it, and installs its CLI. If the
+   generated CLAUDE.md or settings changed, they restore them in Settings → Claude Code in this
+   folder.
 
 If `src/app/update_config.ts` still has `UPDATE_REPO` or `UPDATE_PUBLIC_KEY` null, the one-time
 setup in `docs/RELEASING.md` hasn't been done: do that with the user first.

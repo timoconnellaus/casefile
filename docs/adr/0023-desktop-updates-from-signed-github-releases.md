@@ -26,8 +26,10 @@ by the runtime, not the page, so the CSP is unchanged.
 **What makes an update trusted.**
 - The manifest must be signed with the Ed25519 key whose public half is built into the app
   (`src/app/update_config.ts`).
-- The private key is a secret of the GitHub `release` environment only. It can only be used by a
-  job that the owner approves, for a `v*.*.*` tag.
+- The private key is a secret of the GitHub `release` environment only, which only runs for
+  `main`. Every push to `main` that changes the app is released automatically, at the next
+  version. The environment can require the owner's approval for each release. Without that,
+  merging is releasing, so the PR merge rules are the gate (amendment below).
 - The patch must match the SHA-256 in the signed manifest.
 - CI also checks that each patch rebuilds that release's runtime byte for byte, and smoke-tests the
   built app before anything is signed.
@@ -78,3 +80,16 @@ banner. `deno task app` stays as a browser fallback for development.
 - Apps more than three releases behind get no patch and need `install.sh`.
 - The first live update through GitHub's redirect to its release file host still needs checking
   (docs/RELEASING.md, one-time setup).
+
+## Amendment: release on every merge to main (2026-10-09)
+
+The owner asked for releases to happen on merge, without pushing a tag. The release workflow now
+runs on each push to `main` that changes the app (`src/`, `deno.json`, `deno.lock`, the build and
+release scripts, the workflow), and picks the version itself: PATCH, or MINOR or MAJOR when a
+commit since the last release says `[minor]` or `[major]`. One release runs at a time. Nothing is
+released until the public key is in `update_config.ts`.
+
+Whether a person approves each release is now a setting of the `release` environment (required
+reviewers), not a step in the process. Without it, a green, merged PR reaches the app that holds
+the case. PRs are merged automatically when green, so the chain from push to install would then
+have no person in it. docs/RELEASING.md puts that choice to the owner during setup.

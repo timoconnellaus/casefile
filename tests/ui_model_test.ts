@@ -8,6 +8,7 @@ import { extname, fromFileUrl, join } from "@std/path";
 import { walk } from "@std/fs";
 import {
   actorFor,
+  backupNote,
   badgeFor,
   checkRow,
   colourClass,
@@ -443,4 +444,34 @@ Deno.test("Documents date range: inclusive ends, partial dates by overlap, undat
   assert(!inDateRange("", "", "2025-12-31"));
   assert(!inDateRange("soon", "2025-01-01", ""));
   assert(!inDateRange("2025-03-14", "2025-04-01", "2025-03-01"));
+});
+
+Deno.test("backupNote: last backup in calendar days, amber when none or more than 14 days old", () => {
+  const now = new Date(2026, 9, 9, 9, 0); // 9 Oct 2026, 9 am, local time
+  const at = (y: number, m: number, d: number, h = 12) => new Date(y, m, d, h).toISOString();
+  assertEquals(backupNote(null, now), { text: "No backup yet", overdue: true, days: null });
+  assertEquals(backupNote("not a date", now).text, "No backup yet");
+  assertEquals(backupNote(at(2026, 9, 9, 8), now), {
+    text: "Last backup: today",
+    overdue: false,
+    days: 0,
+  });
+  // Last night at 11 pm is yesterday, though fewer than 24 hours ago.
+  assertEquals(backupNote(at(2026, 9, 8, 23), now).text, "Last backup: 1 day ago");
+  assertEquals(backupNote(at(2026, 9, 2), now).text, "Last backup: 7 days ago");
+  // 14 days is not yet amber; 15 is.
+  assertEquals(backupNote(at(2026, 8, 25), now), {
+    text: "Last backup: 14 days ago",
+    overdue: false,
+    days: 14,
+  });
+  assertEquals(backupNote(at(2026, 8, 24), now), {
+    text: "Last backup: 15 days ago",
+    overdue: true,
+    days: 15,
+  });
+  // Across a daylight-saving change (Sydney: 5 Oct 2026) and a month end.
+  assertEquals(backupNote(at(2026, 8, 30), now).days, 9);
+  // A clock set back never gives a negative count.
+  assertEquals(backupNote(at(2026, 9, 12), now).text, "Last backup: today");
 });

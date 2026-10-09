@@ -444,6 +444,169 @@ export default function view(main, _params, ctx) {
     h("div", { class: "unl-hint" }, "Next, a short checklist helps you set up Claude."),
   );
 
+  // ── restore from a backup (ADR 29) ────────────────────────────────────────
+  // Into a new, empty folder only; the restored case opens as a case of its own.
+  let restoreWithKey = false;
+  const rFile = h("input", {
+    id: "r-file",
+    class: "mono",
+    name: "file",
+    placeholder: "/Volumes/My USB drive/casefile-backup-….casefile-backup",
+    autocomplete: "off",
+    spellcheck: "false",
+  });
+  const rDir = h("input", {
+    id: "r-dir",
+    class: "mono",
+    name: "dir",
+    value: status.defaultCaseDir ?? "",
+    autocomplete: "off",
+    spellcheck: "false",
+    "aria-describedby": "r-dir-hint",
+  });
+  const rPass = PassField({ id: "r-pass", name: "passphrase", describedBy: "r-msg" });
+  const rPassLabel = h("label", { for: "r-pass" }, "Passphrase");
+  const rNew2 = h("input", {
+    id: "r-new2",
+    class: "pf-input",
+    type: "password",
+    autocomplete: "new-password",
+    spellcheck: "false",
+  });
+  const rNew = PassField({ id: "r-new", autocomplete: "new-password", also: [rNew2] });
+  const rNewFields = h(
+    "div",
+    { class: "vstack unl-recover", hidden: true },
+    UField("New passphrase", rNew),
+    UField("Type it again", rNew2),
+    h(
+      "div",
+      { class: "unl-hint" },
+      `For the restored case. At least ${MIN_PASSPHRASE} characters.`,
+    ),
+  );
+  const rMsg = h("div", { id: "r-msg", class: "unl-msg", role: "status", "aria-live": "polite" });
+  const rErr = (title, body, focus) => {
+    rMsg.replaceChildren(Callout({ tone: "attention", title, children: body || null }));
+    focus?.focus();
+  };
+  const rSubmit = h(
+    "button",
+    { type: "submit", class: "btn btn-primary btn-lg unl-submit" },
+    "Restore",
+  );
+  const rSwitch = h("button", {
+    type: "button",
+    class: "btn-link unl-linkbtn",
+    onclick: () => {
+      restoreWithKey = !restoreWithKey;
+      rPassLabel.textContent = restoreWithKey ? "Recovery key" : "Passphrase";
+      rPass.input.value = "";
+      rPass.input.autocomplete = restoreWithKey ? "off" : "current-password";
+      rPass.setWhat(restoreWithKey ? "recovery key" : "passphrase");
+      rNewFields.hidden = !restoreWithKey;
+      rSwitch.textContent = restoreWithKey
+        ? "Use the passphrase instead"
+        : "Use a recovery key instead";
+      rMsg.replaceChildren();
+      rPass.input.focus();
+      announce(restoreWithKey ? "Recovery key field shown." : "Passphrase field shown.");
+    },
+  }, "Use a recovery key instead");
+  const restoreForm = h(
+    "form",
+    {
+      class: "vstack unl-restore-form",
+      "aria-labelledby": "h-restore",
+      novalidate: true,
+      onsubmit: async (ev) => {
+        ev.preventDefault();
+        if (rSubmit.getAttribute("aria-disabled") === "true") return;
+        const file = rFile.value.trim();
+        const folder = rDir.value.trim();
+        const secret = rPass.input.value;
+        if (!file) return rErr("Type where the backup file is", "", rFile);
+        if (!folder) return rErr("Choose a new folder for the restored case", "", rDir);
+        if (!secret) {
+          return rErr(
+            restoreWithKey ? "Type your recovery key" : "Type your passphrase",
+            "The one the case had when the backup was made.",
+            rPass.input,
+          );
+        }
+        /** @type {Record<string, string>} */
+        let body = { file, dir: folder, passphrase: secret };
+        if (restoreWithKey) {
+          if (rNew.input.value.length < MIN_PASSPHRASE) {
+            return rErr(
+              "Choose a longer new passphrase",
+              `Use at least ${MIN_PASSPHRASE} characters.`,
+              rNew.input,
+            );
+          }
+          if (rNew.input.value !== rNew2.value) {
+            return rErr("The new passphrases don’t match", "Type the same one twice.", rNew2);
+          }
+          body = { file, dir: folder, recoveryKey: secret, newPassphrase: rNew.input.value };
+        }
+        rSubmit.setAttribute("aria-disabled", "true");
+        rSubmit.textContent = "Restoring…";
+        announce("Restoring the backup.");
+        try {
+          await api("POST", "/api/case/restore", body);
+        } catch (e) {
+          rSubmit.removeAttribute("aria-disabled");
+          rSubmit.textContent = "Restore";
+          if (e instanceof ApiError && e.status === 429) {
+            return rErr("Too many tries — wait a little", e.message);
+          }
+          if (e instanceof ApiError && e.status === 401) {
+            rPass.input.select();
+            return rErr(
+              restoreWithKey
+                ? "That recovery key doesn’t open this backup"
+                : "That passphrase doesn’t open this backup",
+              "It needs the passphrase (or recovery key) the case had when the backup was made. Nothing was restored.",
+            );
+          }
+          return rErr("casefile couldn’t restore this backup", e?.message ?? String(e));
+        }
+        remember(folder);
+        ctx.toast?.(
+          "Backup restored as a separate case. The case it was made from hasn’t changed.",
+        );
+        location.hash = "#/docs";
+        await ctx.rerender();
+      },
+    },
+    UField("Backup file", rFile),
+    UField(
+      "New folder for the restored case",
+      rDir,
+      h(
+        "div",
+        { class: "unl-hint", id: "r-dir-hint" },
+        "A new or empty folder. casefile never restores over a case: the restored case is a separate case, and the one the backup came from is left as it is.",
+      ),
+    ),
+    h("div", { class: "unl-field" }, rPassLabel, rPass),
+    rNewFields,
+    rMsg,
+    rSubmit,
+    h("div", {}, rSwitch),
+  );
+  const restoreCard = h(
+    "details",
+    { class: "unl-card unl-restore" },
+    h("summary", { id: "h-restore" }, "Restore from a backup"),
+    h(
+      "p",
+      { class: "unl-hint" },
+      "Get a case back from a backup file made in Settings, on this computer or a new one.",
+    ),
+    restoreForm,
+  );
+
   main.replaceChildren(
     h(
       "div",
@@ -459,6 +622,7 @@ export default function view(main, _params, ctx) {
         ),
       ),
       h("div", { class: "unl-cards" }, openForm, createForm),
+      restoreCard,
       h(
         "p",
         { class: "unl-foot" },

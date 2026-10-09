@@ -22,6 +22,11 @@ state, the code value is in `code`; the UI words come from `src/app/ui/model.js`
   (keyfile v2). Using it requires choosing a new passphrase; wrong keys count towards the same
   lockout as wrong passphrases; making, replacing or removing one needs the passphrase. Settings
   record only that one exists (ADR 4, ADR 13).
+- **Backup** ("Back up now", "Restore from a backup"): one encrypted `.casefile-backup` file of the
+  case (vault files, public.db, case.json). Its header carries the case's keyfile, so the passphrase
+  or the recovery key it had then opens it. Restored only into a new or empty folder, as a separate
+  case. Not the **upgrade backup**, the plain copy a new version makes in the app's folder before it
+  first opens a case (ADR 22, ADR 24, ADR 29).
 - **PD-AI**: FCFCOA _Practice Direction: Use of Artificial Intelligence_, issued 29 May 2026.
 
 ## Names and tokens
@@ -66,6 +71,9 @@ state, the code value is in `code`; the UI words come from `src/app/ui/model.js`
   safety-sensitive entry or a value another entry has (ADR 25).
 - **Tidy up who's who**: suggested merges, relationship labels and removals, from rules and the
   language model under Finding names; each is accepted or not by the user (ADR 25).
+- **Suggested fixes** (review screen): for each new finding in a document under review, "the same
+  as" someone listed or another finding, a label, or "leave as written", from rules and the language
+  model reading the whole document; "Use" pre-fills the decisions (ADR 25 amendment).
 - **Re-identify**: swap tokens back to real values, in the app only.
 
 ## Documents

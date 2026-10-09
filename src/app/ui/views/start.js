@@ -4,7 +4,7 @@
 import { h } from "../dom.js";
 import { api } from "../lib.js";
 import { ExternalLink, Icon, showToast, TokenChip } from "../components/index.js";
-import { plural } from "../model.js";
+import { backupNote, plural } from "../model.js";
 import { CommercialPanel, PLAN_LABELS, recordPlan, whenDay } from "./_plan.js";
 
 /** Requests the user can copy into Claude Code. Static copy (no case data). */
@@ -467,24 +467,25 @@ export default async function view(main, _params, _ctx) {
         ],
       };
     },
-    backup: (s) => ({
-      title: "Back up your case",
-      state: s.available === false
-        ? "No backup yet · casefile can’t make one yet"
-        : "No backup yet",
-      content: [
-        h(
-          "p",
-          {},
-          "If this computer is lost or breaks, a copy of the case folder is the only way back to your originals. Until casefile can make an encrypted backup: while casefile is closed, copy the whole case folder to a USB drive only you use. Originals stay encrypted; the copies Claude reads have names replaced.",
-        ),
-        h(
-          "div",
-          {},
-          h("a", { class: "btn", href: "#/settings?s=backup" }, "Backup and recovery in Settings"),
-        ),
-      ],
-    }),
+    backup: (s) => {
+      const note = backupNote(s.lastAt);
+      return {
+        title: "Back up your case",
+        state: h("span", { class: note.overdue ? "attn-text" : "" }, note.text),
+        content: [
+          h(
+            "p",
+            {},
+            "If this computer is lost or breaks, a backup is the only way back to your originals and your work. casefile makes one encrypted file that your passphrase or recovery key opens. Keep it on a USB drive only you use.",
+          ),
+          h(
+            "div",
+            {},
+            h("a", { class: "btn", href: "#/settings?s=backup" }, "Back up in Settings"),
+          ),
+        ],
+      };
+    },
   };
 
   const pickPlan = async (value) => {

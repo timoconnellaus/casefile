@@ -2,6 +2,7 @@
 // deno-lint-ignore-file require-await
 import { decodeBase64 } from "@std/encoding/base64";
 import { parseOrigin } from "../../core/publicdb.ts";
+import { suggestForReview } from "../../core/people.ts";
 import { extractPdfText, MAX_PDF_BYTES, PdfError } from "../../core/pdf.ts";
 import { getEarlierAffidavit, setEarlierAffidavit } from "../../core/export/affidavits.ts";
 import {
@@ -37,7 +38,9 @@ import {
 } from "./context.ts";
 
 /** Documents: import, review, sharing (origin, withdraw, re-check), details, tags. */
-export function docsRoutes({ s, show, plain, notes, guardedSave }: RouteContext): Route[] {
+export function docsRoutes(
+  { s, show, plain, notes, guardedSave, state }: RouteContext,
+): Route[] {
   return [
     // ── documents ───────────────────────────────────────────────────────────
     route("GET", "/api/docs", async ({ url }) => {
@@ -214,6 +217,18 @@ export function docsRoutes({ s, show, plain, notes, guardedSave }: RouteContext)
         refused: p.refused,
         willShare: p.willShare,
       };
+    }),
+    /**
+     * Suggestions for the findings of a document under review (ADR 25 amendment): "same as",
+     * labels and "leave as written", from rules and the language model under Finding names reading
+     * the whole document. Nothing is saved; the review screen pre-fills what the user accepts.
+     */
+    route("POST", "/api/docs/:id/tidy", async ({ params, body }) => {
+      const b = await body();
+      return await suggestForReview(s(), params.id, {
+        useLlm: b.useLlm !== false,
+        fetch: state.opts.tidyFetch,
+      });
     }),
     route("POST", "/api/docs/:id/redetect", async ({ params }) => {
       const doc = await s().redetect(params.id);
@@ -599,6 +614,12 @@ function publishRequest(b: any): PublishRequest {
     ignoreReasons: reasons,
     title: typeof b.title === "string" ? b.title : undefined,
     release: b.release === true,
+    aliases: Array.isArray(b.aliases)
+      ? b.aliases.filter((a: unknown) =>
+        !!a && typeof (a as { ref?: unknown }).ref === "string" &&
+        typeof (a as { value?: unknown }).value === "string"
+      )
+      : undefined,
   };
 }
 

@@ -3,6 +3,7 @@ import { type CasePaths, casePaths, isCaseDir, writeCaseScaffold } from "./case.
 import { CaseLock } from "./caselock.ts";
 import { detect, type NewEntityProposal, type ProposedSpan } from "./detect/pipeline.ts";
 import type { Detector } from "./detect/types.ts";
+import type { ReasoningEffort } from "./detect/llm.ts";
 import {
   type Entity,
   type EntityKind,
@@ -93,6 +94,8 @@ export interface LlmSettings {
   allowRemote?: boolean;
   /** User has confirmed that an uninspectable local server runs the model on this computer. */
   trustLocalServer?: boolean;
+  /** `reasoning_effort` sent to the server (default "none"; "default" sends none). */
+  reasoningEffort?: ReasoningEffort;
 }
 
 /** The three conditions a commercial Claude plan must meet (PD-AI 5.5), as the user confirmed. */

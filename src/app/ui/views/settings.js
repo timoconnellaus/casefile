@@ -593,6 +593,7 @@ export default async function view(main, _params, ctx) {
         apiKey: cur.apiKey ?? "",
         allowRemote: cur.allowRemote === true,
         trustLocalServer: cur.trustLocalServer === true,
+        reasoningEffort: cur.reasoningEffort ?? "none",
         ...patch,
       },
     });
@@ -630,6 +631,24 @@ export default async function view(main, _params, ctx) {
       value: llm?.apiKey ?? "",
       autocomplete: "off",
     });
+    // `reasoning_effort` sent to the server; "none" by default (thinking models time out).
+    const effort = h(
+      "select",
+      { id: "set-llm-effort", "aria-describedby": "set-llm-effort-d" },
+      [
+        ["none", "Off (recommended)"],
+        ["low", "Low"],
+        ["medium", "Medium"],
+        ["high", "High"],
+        ["default", "Leave it to the server"],
+      ].map(([v, label]) =>
+        h(
+          "option",
+          { value: v, selected: (llm?.reasoningEffort ?? "none") === v || undefined },
+          label,
+        )
+      ),
+    );
     const details = h(
       "details",
       { class: "set-details", open: llmOpen || undefined },
@@ -658,6 +677,7 @@ export default async function view(main, _params, ctx) {
                 baseUrl: url.value.trim(),
                 model: model.value.trim(),
                 apiKey: key.value,
+                reasoningEffort: effort.value,
               });
               llmOpen = true;
               const msg = S.llmCheck?.permitted
@@ -683,6 +703,17 @@ export default async function view(main, _params, ctx) {
               { class: "set-field" },
               h("label", { for: key.id }, "Key (only if the server needs one)"),
               key,
+            ),
+            h(
+              "div",
+              { class: "set-field" },
+              h("label", { for: effort.id }, "Thinking (reasoning_effort)"),
+              effort,
+              h(
+                "span",
+                { id: "set-llm-effort-d", class: "muted" },
+                "Thinking models can take minutes per page with thinking on. If the server doesn’t accept this, casefile asks again without it.",
+              ),
             ),
           ),
           h(

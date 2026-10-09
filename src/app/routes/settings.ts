@@ -1,4 +1,5 @@
 import { restoreScaffold, UnsafeCasePathError } from "../../core/case.ts";
+import { isReasoningEffort, REASONING_EFFORTS } from "../../core/detect/llm.ts";
 import type { CaseSession } from "../../core/session.ts";
 import { claudeCodeStatus, openTerminalIn } from "../claudecode.ts";
 import { llmWords } from "../llmwords.ts";
@@ -28,7 +29,13 @@ export function settingsRoutes({ state, s }: RouteContext): Route[] {
         claudeSetup: st.claudeSetup,
         nerEnabled: st.nerEnabled,
         nameDetection: s().nameDetection,
-        llm: st.llm ? { ...st.llm, apiKey: st.llm.apiKey ? "••••••" : "" } : null,
+        llm: st.llm
+          ? {
+            ...st.llm,
+            apiKey: st.llm.apiKey ? "••••••" : "",
+            reasoningEffort: st.llm.reasoningEffort ?? "none",
+          }
+          : null,
         caseDir: s().paths.root,
         idleLockMinutes: state.idleLockMinutes(),
         shortcuts: st.shortcuts !== false,
@@ -82,6 +89,18 @@ export function settingsRoutes({ state, s }: RouteContext): Route[] {
           allowRemote: b.llm.allowRemote === true,
           trustLocalServer: b.llm.trustLocalServer === true,
         };
+        // Thinking: "none" unless the user chose otherwise (detect/llm.ts).
+        const effort = b.llm.reasoningEffort ?? prev?.reasoningEffort;
+        if (effort !== undefined && effort !== "none") {
+          if (!isReasoningEffort(effort)) {
+            throw new HttpError(
+              400,
+              `reasoningEffort must be one of ${REASONING_EFFORTS.join(", ")}`,
+            );
+          }
+          patch.llm.reasoningEffort = effort;
+        }
+        extra.reasoning_effort = patch.llm.reasoningEffort ?? "none";
       }
       await s().updateSettings(patch);
       await state.configureDetectors();

@@ -22,6 +22,20 @@ export interface LlmEndpointSettings {
    * this computer. Without this, unconfirmed local endpoints are refused (fail closed).
    */
   trustLocalServer?: boolean;
+  /**
+   * The `reasoning_effort` sent with every request (default `"none"`: no thinking, which thinking
+   * models in LM Studio need to answer within the time limit). `"default"` sends none, leaving it
+   * to the server. A server that rejects the field is asked again without it.
+   */
+  reasoningEffort?: ReasoningEffort;
+}
+
+/** Values of the `reasoningEffort` setting; `"default"` means the field is not sent. */
+export const REASONING_EFFORTS = ["none", "low", "medium", "high", "default"] as const;
+export type ReasoningEffort = typeof REASONING_EFFORTS[number];
+
+export function isReasoningEffort(v: unknown): v is ReasoningEffort {
+  return typeof v === "string" && (REASONING_EFFORTS as readonly string[]).includes(v);
 }
 
 export type FetchFn = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
@@ -439,14 +453,16 @@ export interface LlmOptions {
 
 /**
  * One OpenAI-compatible chat-completions endpoint (ADR 12), shared by the LLM name pass and the
- * extra checks' language model (ADR 14). Asks for JSON (`response_format`) and no thinking
- * (`"reasoning_effort": "none"`): a thinking model such as Qwen 3.6 in LM Studio does not finish a
- * chunk within 120 s with thinking on, and takes about 20 s without. A server that rejects either
- * field (400) is asked again without it, and the working combination is remembered.
+ * extra checks' language model (ADR 14). Asks for JSON (`response_format`) and, by default, no
+ * thinking (`"reasoning_effort": "none"`, the `reasoningEffort` setting): a thinking model such as
+ * Qwen 3.6 in LM Studio does not finish a chunk within 120 s with thinking on, and takes about
+ * 20 s without. A server that rejects either field (400) is asked again without it, and the
+ * working combination is remembered.
  */
 export class ChatCompletions {
   private jsonMode = true;
-  private noReasoning = true;
+  /** Whether `reasoning_effort` is sent: off for the "default" setting or once rejected. */
+  private sendEffort: boolean;
   private fetchFn: FetchFn;
 
   constructor(
@@ -454,23 +470,30 @@ export class ChatCompletions {
     private opts: { fetch?: FetchFn; timeoutMs?: number } = {},
   ) {
     this.fetchFn = opts.fetch ?? fetch;
+    this.sendEffort = this.effort !== "default";
+  }
+
+  private get effort(): ReasoningEffort {
+    return isReasoningEffort(this.settings.reasoningEffort)
+      ? this.settings.reasoningEffort
+      : "none";
   }
 
   async complete(messages: { role: "system" | "user"; content: string }[]): Promise<string> {
-    let res = await this.post(messages, this.jsonMode, this.noReasoning);
+    let res = await this.post(messages, this.jsonMode, this.sendEffort);
     if (res.status === 400) {
       // Some servers reject response_format, others reasoning_effort: drop one, then the other,
       // then both, and remember the first that is accepted.
       const tries: [boolean, boolean][] = [];
-      if (this.jsonMode) tries.push([false, this.noReasoning]);
-      if (this.noReasoning) tries.push([this.jsonMode, false]);
-      if (this.jsonMode && this.noReasoning) tries.push([false, false]);
-      for (const [json, noReasoning] of tries) {
+      if (this.jsonMode) tries.push([false, this.sendEffort]);
+      if (this.sendEffort) tries.push([this.jsonMode, false]);
+      if (this.jsonMode && this.sendEffort) tries.push([false, false]);
+      for (const [json, sendEffort] of tries) {
         await res.body?.cancel();
-        res = await this.post(messages, json, noReasoning);
+        res = await this.post(messages, json, sendEffort);
         if (res.status !== 400) {
           this.jsonMode = json;
-          this.noReasoning = noReasoning;
+          this.sendEffort = sendEffort;
           break;
         }
       }
@@ -491,7 +514,7 @@ export class ChatCompletions {
   private async post(
     messages: { role: string; content: string }[],
     jsonMode: boolean,
-    noReasoning: boolean,
+    sendEffort: boolean,
   ): Promise<Response> {
     const timeoutMs = this.opts.timeoutMs ?? 120_000;
     const headers: Record<string, string> = { "Content-Type": "application/json" };
@@ -503,7 +526,7 @@ export class ChatCompletions {
       messages,
     };
     if (jsonMode) body.response_format = { type: "json_object" };
-    if (noReasoning) body.reasoning_effort = "none";
+    if (sendEffort) body.reasoning_effort = this.effort;
     const url = `${this.settings.baseUrl.replace(/\/+$/, "")}/chat/completions`;
     const ac = new AbortController();
     const timer = setTimeout(() => ac.abort(), timeoutMs);

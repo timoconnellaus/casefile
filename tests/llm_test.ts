@@ -376,6 +376,41 @@ Deno.test('thinking is turned off with "reasoning_effort": "none"', async () => 
   }
 });
 
+Deno.test('the reasoningEffort setting: another level is sent as set; "default" sends none', async () => {
+  const srv = fakeServer(() => completion(entities([])));
+  try {
+    const base = { baseUrl: srv.baseUrl, model: "m", trustLocalServer: true };
+    await new LlmDetector({ ...base, reasoningEffort: "low" }).detect("Some text.");
+    assertEquals(chat(srv).at(-1)!.body!.reasoning_effort, "low");
+    await new LlmDetector({ ...base, reasoningEffort: "default" }).detect("Some text.");
+    assert(!("reasoning_effort" in chat(srv).at(-1)!.body!));
+    // Anything else stored there counts as the default, "none".
+    await new LlmDetector({ ...base, reasoningEffort: "max" as never }).detect("Some text.");
+    assertEquals(chat(srv).at(-1)!.body!.reasoning_effort, "none");
+  } finally {
+    await srv.close();
+  }
+});
+
+Deno.test("a chosen reasoningEffort the server rejects is dropped the same way", async () => {
+  const srv = fakeServer((body) =>
+    "reasoning_effort" in body ? new Response("{}", { status: 400 }) : completion(entities([]))
+  );
+  try {
+    await new LlmDetector({
+      baseUrl: srv.baseUrl,
+      model: "m",
+      trustLocalServer: true,
+      reasoningEffort: "high",
+    }).detect("Some text.");
+    const sent = chat(srv).map((s) => s.body!.reasoning_effort ?? null);
+    assertEquals(sent.at(0), "high");
+    assertEquals(sent.at(-1), null);
+  } finally {
+    await srv.close();
+  }
+});
+
 Deno.test("a server that rejects reasoning_effort is asked again without it, and that is remembered", async () => {
   // Rejects reasoning_effort but takes JSON mode: JSON mode must survive the fallback.
   const srv = fakeServer((body) =>

@@ -95,3 +95,9 @@ lapsed checks come from `Ledger.lapsedCheck`. Removals come from `Ledger.removed
 - Cases created before log sealing have `legacy` rows. Those are not counted for paste uses or
   detectors, so such cases may under-report. They never over-report.
 - `/api/stats` stayed until wave 3 for the legacy UI; it was removed in W3-4 (October 2026).
+
+## Amendment: acknowledged log problems in the summary (2026-10-09)
+
+The record section lists every recorded log problem once there is more than one or any is
+acknowledged, each marked "acknowledged by you on <date>" when the user acknowledged it (ADR 28).
+The acknowledgement comes from the vault, never from public.db.

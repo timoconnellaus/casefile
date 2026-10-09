@@ -66,6 +66,7 @@ The original milestones (1–6) built the core and a first app; the v2 rebuild (
 - **Drafting**: four paragraph states with no similarity measure, placeholders, fact-by-fact answers at adoption, paragraph sources and relies-on links, vault-only affidavit heading, export flags for other kinds (ADR 9, ADR 16).
 - **Paste**: logged views and copies, per-sentence checks, safety warning before copy, add to a draft as Claude's (ADR 19).
 - **To check, log and Court summary** from signed records only; readable log with labels and CSV export (ADR 18).
+- **Log problems can be acknowledged** (ADR 28): each recorded problem keeps its record and its place in the Court summary ("acknowledged by you on <date>"); the acknowledgement is kept in the vault and logged, and the Log screen shrinks it to one quiet line. A problem found later warns in full again. The log check stays "not intact".
 - **Case setup**: recovery key, idle lock 15/30/60 minutes, Claude Code folder checks and restore, "Open Terminal here", PD-AI 5.4 confirmations, Getting started checklist (ADR 4, ADR 13, ADR 17).
 - **CLI**: logs the lines and hits it returns, paragraph `--source` / `--relies`, plain withheld reasons, removed items hidden, guide rules against writing the witness's feelings (ADR 16).
 - **Export** (wave 3): RTF for Word (affidavit with heading, numbered paragraphs and jurat; chronology table, checked only or all with unchecked marked), vault-only annexure marks, a provenance report per draft, and a safety confirmation before an export includes a protected address (ADR 21).
@@ -96,6 +97,7 @@ These are deliberate (REBUILD-PLAN section 3). The UI says so honestly rather th
 
 **What casefile cannot see or enforce**
 
+- **A false log problem after a crash.** A crash that loses the last database rows while the fsynced head survives can record a false `tail_changed` problem. It is never cleared; the user can acknowledge it (ADR 28), and it stays listed in the Court summary (ADR 8 amendment).
 - **Shell reads are invisible to logging.** The log records what Claude read *through casefile* (CLI output). Claude Code can also read `public.db` or other files with shell commands, which casefile never sees, so exposure records and the Court summary are a lower bound for Claude's reads; every screen says "through casefile" (ADR 16). CLI rows Claude alters or deletes before the app countersigns them cannot be detected (ADR 8).
 - **The sandbox is Claude Code's, not casefile's.** The generated settings turn on Claude Code's sandbox and deny web tools, but Claude Code honours them; the user or managed settings can override them, and user-level settings, `.mcp.json`, agents and hooks are outside casefile's view (ADR 3, ADR 17). Unsandboxed, Claude Code running as the same user could impersonate a local LLM server and receive original text, so use NER only in that case (ADR 12). The transformers.js code itself is not pinned when run from source.
 - **Deno has no `openat`/`O_NOFOLLOW`.** casefile's writes and reads of the case's Claude Code files check for links and pipes and re-check device and inode just before the rename or read, but a swap between the last check and the rename or open is narrowed, not closed (ADR 13 amendment).
@@ -124,7 +126,6 @@ These are deliberate (REBUILD-PLAN section 3). The UI says so honestly rather th
 
 **Open decisions for the user**
 
-- **Log problems cannot be acknowledged.** A recorded log problem (lost or damaged log head, changed tail, missing settings) is permanent and keeps its warning on the Log screen and in the Court summary; there is no way to acknowledge it. The proposed UX is "Acknowledge": keep the record, mute the banner, and log the acknowledgement. It waits for the user's decision. Related risk: a crash that loses the last database rows while the fsynced head survives could record a false `tail_changed` problem, which then cannot be cleared (ADR 8 amendment).
 - **Documents list filters (QA D4).** The mockup's per-column filter row (ID, Title, Date range, Type, Where it came from, Status) is not built; the screen has one "Filter by ID or title" box plus the sidebar facets (state, type, origin, tags). Whether the column filters are still wanted needs the user's decision and a DESIGN-SPEC note before anyone builds them.
 
 **Known gaps**

@@ -1,6 +1,7 @@
 // Route handlers are uniformly async, whether or not a given one awaits.
 // deno-lint-ignore-file require-await
 import type { Actor } from "../../core/publicdb.ts";
+import { LogProblemAckError } from "../../core/session.ts";
 import { LOG_CATEGORIES, type LogCategory, logCsv, logEntries } from "../../core/summary.ts";
 import { type ErrorMapper, HttpError, type Route, route, type RouteContext } from "./context.ts";
 
@@ -35,6 +36,13 @@ export function logRoutes({ s }: RouteContext): Route[] {
         ),
     ),
     route("GET", "/api/log/verify", async () => await s().verifyLog()),
+    // The user acknowledges recorded log problem n (1 = oldest). It stays recorded, listed and
+    // reported; only its warning on the Log screen gets smaller (ADR 28).
+    route("POST", "/api/log/problems/:n/acknowledge", async ({ params }) => {
+      if (!/^\d+$/.test(params.n)) throw new HttpError(400, "Bad problem number");
+      const problem = await s().acknowledgeLogProblem(Number(params.n));
+      return { problem, check: await s().verifyLog() };
+    }),
     // The log as the user reads it: plain-language labels and categories, filtered and paged.
     route("GET", "/api/log/entries", async ({ url }) => {
       const q = url.searchParams;
@@ -88,4 +96,7 @@ export function logRoutes({ s }: RouteContext): Route[] {
   ];
 }
 
-export const logErrors: ErrorMapper[] = [];
+export const logErrors: ErrorMapper[] = [
+  (e) =>
+    e instanceof LogProblemAckError ? { status: e.status, body: { error: e.message } } : undefined,
+];

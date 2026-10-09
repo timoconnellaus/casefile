@@ -112,6 +112,11 @@ state, the code value is in `code`; the UI words come from `src/app/ui/model.js`
 - **AI-use log**: `ai_log` in public.db: imports, publishing, CLI reads and writes, checks,
   adoptions, pastes, exports. Hash-chained by the app; CLI rows are countersigned when the app next
   writes. Holds ids, line numbers and counts, never document text (ADR 8, ADR 16).
+- **Log problem**: something casefile found wrong with the AI-use log and recorded in the vault
+  (lost or damaged record of the last entry, entries changed at the end, missing settings). Never
+  cleared; the log check stays "not intact". The user can **acknowledge** one ("Acknowledge" on the
+  Log screen): it is still listed in the Court summary, marked "acknowledged by you on <date>", and
+  its warning shrinks to one line (ADR 8, ADR 28).
 - **Through casefile**: what the log can show Claude read: CLI output only. Reads by shell commands
   are not recorded, so every screen that lists Claude's reads says "through casefile".
 - **Attestation ledger**: the vault file of the user's current signed checks, adoptions, authorship,

@@ -237,6 +237,20 @@ export interface LogProblem {
   kind: "head_missing" | "head_damaged" | "tail_changed" | "settings_missing";
   headId?: number;
   kept?: string | null;
+  /**
+   * When the user acknowledged it (ADR 28). Only on the log check's copies; the vault keeps the
+   * acknowledgements in their own list (`CaseSettings.logProblemAcks`).
+   */
+  acknowledged?: { at: string };
+}
+
+/** The user's acknowledgement of one recorded log problem (ADR 28), kept in the vault. */
+export interface LogProblemAck {
+  /** When the user acknowledged it. */
+  at: string;
+  /** The problem: its `at` and `kind`, which never change once recorded. */
+  problemAt: string;
+  kind: LogProblem["kind"];
 }
 
 export interface LogCheck {
@@ -255,8 +269,13 @@ export interface LogCheck {
    * (`CaseSettings.logProblems`): entries deleted from the end before `at` cannot be ruled out.
    */
   headLost?: { at: string; reason: "missing" | "damaged" };
-  /** Problems casefile found and recorded in the vault earlier; they are never cleared. */
+  /**
+   * Problems casefile found and recorded in the vault earlier; they are never cleared. Each says
+   * whether the user acknowledged it (ADR 28); acknowledging never makes the log intact.
+   */
   recorded?: LogProblem[];
+  /** What checking the chain found now, apart from recorded problems (absent: nothing). */
+  chainProblem?: string;
 }
 
 /** Items that can be removed (restorably) rather than deleted. */

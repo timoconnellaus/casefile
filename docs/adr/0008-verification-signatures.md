@@ -316,3 +316,10 @@ and the check then passed. Changes:
 
 Limitation: someone who can delete the whole vault can delete these records too. Deleting only
 the settings or only the head is reported.
+
+## Amendment: recorded log problems can be acknowledged (2026-10-09)
+
+ADR 28 lets the user acknowledge each recorded log problem. This does not change the rule above:
+problems are still append-only and never cleared, and the log check still reports the log as not
+intact. The acknowledgement is a separate append-only vault record (`logProblemAcks`) plus a sealed
+`log_problem_acknowledged` log entry; it only shrinks that problem's warning on the Log screen.

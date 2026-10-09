@@ -8,6 +8,7 @@ import {
   ActorLabel,
   announce,
   Callout,
+  ConfirmBar,
   copyText,
   EmptyState,
   FlagBadge,
@@ -48,12 +49,18 @@ function timeOf(ts) {
   return d.toLocaleTimeString("en-AU", { hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
-/** @param {HTMLElement} main @param {Record<string, string>} _params @param {any} _ctx */
-export default async function view(main, _params, _ctx) {
+/** @param {HTMLElement} main @param {Record<string, string>} params @param {any} ctx */
+export default async function view(main, params, ctx) {
   const [summary, first] = await Promise.all([
     api("GET", "/api/court-summary"),
     api("GET", `/api/log/entries?limit=${PAGE}`),
   ]);
+  // After an acknowledgement: draw the screen again (the summary and the log both change).
+  const refresh = async (message) => {
+    await view(main, params, ctx);
+    main.querySelector("#log-check-anchor")?.focus();
+    announce(message);
+  };
 
   clear(
     main,
@@ -62,7 +69,7 @@ export default async function view(main, _params, _ctx) {
       { class: "log" },
       h("h1", {}, "AI-use log"),
       courtSummary(summary),
-      fullLog(summary, first),
+      fullLog(summary, first, refresh),
     ),
   );
 }
@@ -131,7 +138,7 @@ function courtSummary(s) {
 
 // ── the full log ─────────────────────────────────────────────────────────────
 
-function fullLog(summary, first) {
+function fullLog(summary, first, refresh) {
   const filters = { who: "all", what: "", doc: "", from: "", to: "" };
   const categories = first.categories ?? [];
   const allTotal = first.total;
@@ -350,7 +357,7 @@ function fullLog(summary, first) {
   }
 
   body.append(
-    logCheck(summary.figures?.log, allTotal),
+    logCheck(summary.figures?.log, allTotal, refresh),
     h(
       "div",
       { class: "log-filters", role: "group", "aria-label": "Filter the log" },
@@ -396,7 +403,7 @@ function fullLog(summary, first) {
 }
 
 /** "Log checked: no changes found since …", from the summary's own check of the sealed log. */
-function logCheck(log, entries) {
+function logCheck(log, entries, refresh) {
   if (!log) return null;
   const since = log.since ? ` since ${formatDay(log.since)}` : "";
   const pending = log.pending
@@ -409,26 +416,49 @@ function logCheck(log, entries) {
     )
     : null;
   if (!log.intact) {
+    const recorded = log.recorded ?? [];
+    const open = recorded.filter((p) => !p.acknowledgedAt);
+    // An acknowledged problem keeps one quiet line; it is still in the summary (ADR 28).
+    const quiet = recorded.filter((p) => p.acknowledgedAt).map((p) =>
+      h(
+        "p",
+        { class: "log-ack muted" },
+        h("span", { "aria-hidden": "true" }, "▲ "),
+        `Log problem found on ${formatDay(p.at)}: ${p.what}. Acknowledged by you on ${
+          formatDay(p.acknowledgedAt)
+        }; still listed in “If the Court asks”.`,
+      )
+    );
+    const anchor = h("span", { id: "log-check-anchor", tabindex: "-1", class: "sr" }, "Log check");
+    if (!open.length && !log.chainProblem) {
+      return h("div", { class: "log-check log-check--acked" }, anchor, quiet, pending);
+    }
     // A lost record of the last entry is not a changed entry: say what casefile can't rule out.
-    const lostOnly = Boolean(log.headLost) &&
-      !(log.recorded ?? []).some((k) => !k.startsWith("head_")) &&
-      (log.problem ?? "").startsWith("the record of the log's last entry");
-    return Callout({
-      tone: "danger",
-      title: lostOnly
-        ? "Log checked: casefile can’t rule out removed entries"
-        : "Log checked: casefile found a problem",
-      children: [
-        h(
-          "p",
-          {},
-          `${log.problem ?? "An entry doesn’t match its seal."}${
-            log.problem ? "." : ""
-          } Entries marked “Not written by casefile” below can’t be relied on.`,
-        ),
-        pending,
-      ],
-    });
+    const lostOnly = Boolean(log.headLost) && !log.chainProblem &&
+      !open.some((p) => !p.kind.startsWith("head_"));
+    return h(
+      "div",
+      { class: "vstack gap-sm" },
+      anchor,
+      Callout({
+        tone: "danger",
+        title: lostOnly
+          ? "Log checked: casefile can’t rule out removed entries"
+          : "Log checked: casefile found a problem",
+        children: [
+          h(
+            "p",
+            {},
+            `${log.problem ?? "An entry doesn’t match its seal."}${
+              log.problem ? "." : ""
+            } Entries marked “Not written by casefile” below can’t be relied on.`,
+          ),
+          open.map((p) => acknowledgeRow(p, open.length > 1, refresh)),
+          pending,
+        ],
+      }),
+      quiet,
+    );
   }
   return h(
     "div",
@@ -447,4 +477,51 @@ function logCheck(log, entries) {
     ),
     pending,
   );
+}
+
+/** One recorded problem's Acknowledge action, confirmed in a ConfirmBar (ADR 28). */
+function acknowledgeRow(p, many, refresh) {
+  const day = formatDay(p.at);
+  const row = h("div", { class: "log-ack-row" });
+  const msg = h("span", { class: "danger-text small", role: "status" });
+  const button = h("button", {
+    type: "button",
+    class: "btn",
+    "aria-label": `Acknowledge the log problem found on ${day}`,
+    onclick: () => {
+      const bar = ConfirmBar({
+        summary: `Acknowledge the problem casefile found on ${day}?`,
+        detail: h(
+          "p",
+          {},
+          "It stays in the log and in “If the Court asks”, marked as acknowledged by you, and is never deleted. Only this warning gets smaller. Acknowledging is recorded in the log.",
+        ),
+        confirmLabel: "Acknowledge",
+        onConfirm: async () => {
+          try {
+            await api("POST", `/api/log/problems/${p.n}/acknowledge`);
+            await refresh(`Acknowledged the log problem found on ${day}.`);
+          } catch (e) {
+            msg.textContent = `casefile couldn’t record that: ${e.message ?? e}`;
+          }
+        },
+        onCancel: () => {
+          button.hidden = false;
+          clear(row, line, msg);
+          button.focus();
+        },
+      });
+      button.hidden = true;
+      clear(row, line, bar, msg);
+      bar.focusPrimary();
+    },
+  }, "Acknowledge");
+  const line = h(
+    "div",
+    { class: "hstack" },
+    many ? h("span", {}, `Found on ${day}: ${p.what}.`) : null,
+    button,
+  );
+  row.append(line, msg);
+  return row;
 }

@@ -139,16 +139,16 @@ async function canonCase(fetchFn: FetchFn) {
     judgeDeps: { fetch: fetchFn, loadNli: () => Promise.resolve(flaggingNli) },
   });
   const s = t.state.session!;
-  await seedCanon(s, { omitAliases: ["Bec"] });
+  await seedCanon(s, { omitAliases: ["Annie"] });
   const d3 = await s.importText({
     title: "Father's affidavit",
-    text: `I, Daniel Okafor, say on affirmation:\n1. The ${WITHHELD_MARK} was signed by Rebecca.`,
+    text: `I, Daniel Okafor, say on affirmation:\n1. The ${WITHHELD_MARK} was signed by Anna.`,
     origin: "other_side",
   });
   await s.publishWithDefaults(d3.id);
   const d4 = await s.importText({
     title: "Handover notes",
-    text: `${EXPOSED_MARK}\nBec dropped Mia at school at 8:30am on 3 April 2025.`,
+    text: `${EXPOSED_MARK}\nAnnie dropped Mia at school at 8:30am on 3 April 2025.`,
     origin: "mine",
   });
   await s.publishWithDefaults(d4.id);
@@ -181,7 +181,7 @@ async function canonCase(fetchFn: FetchFn) {
     mixed: entry("Pick-up was late.", [cite("D001", 2), cite("D003", 2)]),
   };
   const mother = s.registry.get("mother")!;
-  await s.updateEntity("mother", { aliases: [...mother.aliases, "Bec"] });
+  await s.updateEntity("mother", { aliases: [...mother.aliases, "Annie"] });
   assertEquals(s.docState(await s.getDoc("D003")), "withheld");
   assertEquals(s.docState(await s.getDoc("D004")), "exposed");
 
@@ -289,7 +289,7 @@ Deno.test("text a new nickname would reveal is not sent, even in Claude's own no
     // Claude wrote the nickname into a note before casefile knew it.
     const id = t.s.store.addChronology({
       event_date: "2025-03-14",
-      description: "Bec waited at {{school}}.",
+      description: "Annie waited at {{school}}.",
       sources: [{ doc_id: "D001", line_start: 1, line_end: 1 }],
     }, "claude");
     const r = await t.user.post("/api/judge/check", { type: "chronology", id });

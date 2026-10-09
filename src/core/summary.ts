@@ -1337,6 +1337,12 @@ const LABELS: Record<string, Label> = {
     () => "The earlier one no longer works",
   ],
   recovery_key_removed: ["settings", () => "You removed the recovery key"],
+  // Single-file backups (ADR 29): counts and dates only, never where the file went.
+  case_backed_up: [
+    "settings",
+    () => "You backed up the case to an encrypted file",
+    (d) => typeof d.files === "number" ? plural(d.files, "file") : null,
+  ],
   pd_ai_confirmed: [
     "settings",
     () => "You confirmed your Claude settings (the Court’s rules on AI, PD-AI 5.4)",

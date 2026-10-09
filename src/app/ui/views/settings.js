@@ -90,14 +90,15 @@ function fill(sec, ...children) {
 
 /** @param {HTMLElement} main @param {Record<string, string>} _params @param {any} ctx */
 export default async function view(main, _params, ctx) {
-  const [st, plan, cc, people, judge] = await Promise.all([
+  const [st, plan, cc, people, judge, backup] = await Promise.all([
     api("GET", "/api/settings"),
     api("GET", "/api/plan"),
     api("GET", "/api/claude-code"),
     api("GET", "/api/people?group=people").catch(() => null),
     api("GET", "/api/judge").catch(() => null),
+    api("GET", "/api/backup").catch(() => ({ lastAt: null, folder: null })),
   ]);
-  const S = { st, plan, cc, people: people?.entities ?? [], llmCheck: null, judge };
+  const S = { st, plan, cc, people: people?.entities ?? [], llmCheck: null, judge, backup };
 
   const secs = Object.fromEntries(SECTIONS.map(([id]) => [id, null]));
   const titles = {
@@ -1250,6 +1251,88 @@ export default async function view(main, _params, ctx) {
 
   // ── Backup and recovery ─────────────────────────────────────────────────
   let keyMode = null; // null | "make" | "remove" | {key, replaced}
+  /** The last backup's result, shown under the form until the section is left. */
+  let backupMsg = null;
+
+  /** "Back up now": the folder is asked each time, filled in with the last one (ADR 29). */
+  const BackupRow = () => {
+    const b = S.backup ?? { lastAt: null, folder: null };
+    const folder = h("input", {
+      id: "set-bk-dir",
+      class: "mono",
+      name: "folder",
+      value: b.folder ?? "",
+      placeholder: "/Volumes/My USB drive",
+      autocomplete: "off",
+      spellcheck: "false",
+      "aria-describedby": "set-bk-hint",
+    });
+    const go = h(
+      "button",
+      { type: "submit", class: "btn btn-primary", id: "set-bk-go" },
+      "Back up now",
+    );
+    return h(
+      "div",
+      { class: "status-row" },
+      h("span", { class: "status-row-lead" }, b.lastAt ? Icon("check") : Icon("dot")),
+      h(
+        "span",
+        { class: "status-row-text" },
+        h(
+          "span",
+          { class: "status-row-title hstack" },
+          b.lastAt ? `Last backup: ${whenDay(b.lastAt, false)}` : Flag("No backup yet"),
+        ),
+        h(
+          "span",
+          { class: "status-row-sub" },
+          "One encrypted file holds the whole case: your originals, Who’s who, your checks, Claude’s work and the log. Your passphrase or your recovery key opens it, as they were when it was made.",
+        ),
+        h(
+          "form",
+          {
+            class: "vstack gap-sm set-bk-form",
+            "aria-label": "Back up this case",
+            onsubmit: act(async (ev) => {
+              ev.preventDefault();
+              if (!folder.value.trim()) {
+                folder.focus();
+                return announce("Type the folder to put the backup in.");
+              }
+              go.textContent = "Backing up…";
+              try {
+                const r = await api("POST", "/api/backup", { folder: folder.value.trim() });
+                S.backup = { lastAt: r.lastAt, folder: folder.value.trim() };
+                backupMsg = { ok: true, text: `Backed up to ${r.file} in ${r.folder}.` };
+              } catch (e) {
+                backupMsg = { ok: false, text: errorText(e) };
+              }
+              renderBackup();
+              announce(backupMsg.text);
+              secs.backup.querySelector("#set-bk-go")?.focus();
+            }),
+          },
+          h("label", { for: "set-bk-dir" }, "Folder to put the backup in"),
+          h("div", { class: "hstack set-actions" }, folder, go),
+          h(
+            "span",
+            { id: "set-bk-hint", class: "status-row-sub muted" },
+            "A USB drive only you use is best. Not the case folder: Claude Code can read everything in it. To restore a backup, lock casefile and choose “Restore from a backup”.",
+          ),
+          backupMsg
+            ? (backupMsg.ok
+              ? h("p", { class: "status-text", role: "status" }, Icon("check"), backupMsg.text)
+              : Callout({
+                tone: "attention",
+                title: "casefile couldn’t make the backup",
+                children: backupMsg.text,
+              }))
+            : null,
+        ),
+      ),
+    );
+  };
   const renderBackup = async () => {
     const info = S.st.recoveryKey ?? { set: false, createdAt: null };
     let panel = null;
@@ -1358,33 +1441,12 @@ export default async function view(main, _params, ctx) {
       h(
         "p",
         { class: "set-lede" },
-        "If this computer is lost or the case folder is damaged, a copy is the only way to get your work back. casefile doesn’t keep a copy anywhere else.",
+        "If this computer is lost or the case folder is damaged, a backup is the only way to get your work back. casefile doesn’t keep a copy anywhere else.",
       ),
       h(
         "div",
         { class: "set-box" },
-        h(
-          "div",
-          { class: "status-row" },
-          h("span", { class: "status-row-lead" }),
-          h(
-            "span",
-            { class: "status-row-text" },
-            h("span", { class: "status-row-title hstack" }, Flag("No backup yet")),
-            h(
-              "span",
-              { class: "status-row-sub" },
-              "casefile can’t make an encrypted backup yet. Until it can: while casefile is closed (or locked), copy the whole case folder to a USB drive only you use. Originals stay encrypted; the copies Claude reads have names replaced.",
-            ),
-            h(
-              "span",
-              { class: "status-row-sub muted" },
-              "Case folder: ",
-              h("span", { class: "mono" }, S.st.caseDir),
-            ),
-          ),
-          h("span", { class: "status-row-meta muted" }, "Not available yet"),
-        ),
+        BackupRow(),
         h(
           "div",
           { class: "status-row" },

@@ -2,6 +2,7 @@ import { InvalidInputError, NotFoundError } from "../core/publicdb.ts";
 import type { AppState } from "./state.ts";
 import { type ErrorMapper, HttpError, makeContext, type Route } from "./routes/context.ts";
 import { caseErrors, caseRoutes } from "./routes/case.ts";
+import { backupErrors, backupRoutes } from "./routes/backup.ts";
 import { settingsErrors, settingsRoutes } from "./routes/settings.ts";
 import { docsErrors, docsRoutes } from "./routes/docs.ts";
 import { planErrors, planRoutes } from "./routes/plan.ts";
@@ -34,6 +35,7 @@ export function buildRoutes(state: AppState): Route[] {
     // First: `/api/chronology/export` must not be read as a chronology entry id.
     ...exportRoutes(ctx),
     ...caseRoutes(ctx),
+    ...backupRoutes(ctx),
     ...settingsRoutes(ctx),
     ...docsRoutes(ctx),
     ...planRoutes(ctx),
@@ -64,6 +66,7 @@ export const ERROR_MAPPERS: ErrorMapper[] = [
       ? { status: e.status, body: { error: e.message, ...e.body } }
       : undefined,
   ...caseErrors,
+  ...backupErrors,
   ...settingsErrors,
   ...docsErrors,
   ...planErrors,

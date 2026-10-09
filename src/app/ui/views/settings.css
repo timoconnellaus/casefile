@@ -138,6 +138,16 @@
   gap: 2px;
 }
 
+/* Back up now (ADR 29): the folder field takes the row's width, the button stays its size. */
+.set-bk-form {
+  margin-top: var(--sp-2);
+}
+
+.set-bk-form .set-actions input {
+  flex: 1 1 16rem;
+  min-width: 0;
+}
+
 .set-actions {
   flex-wrap: wrap;
   gap: 10px;

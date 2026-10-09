@@ -1,4 +1,4 @@
-import { isAbsolute, join, relative, resolve, SEPARATOR } from "@std/path";
+import { basename, isAbsolute, join, relative, resolve, SEPARATOR } from "@std/path";
 import type { Detector } from "../core/detect/types.ts";
 import type { FetchFn } from "../core/detect/llm.ts";
 import { createJudge, type JudgeDeps } from "../core/judge/factory.ts";
@@ -7,7 +7,14 @@ import { casePaths, isCaseDir } from "../core/case.ts";
 import { InvalidInputError } from "../core/publicdb.ts";
 import { CaseInUseError, CaseLock } from "../core/caselock.ts";
 import { CaseSession, type CaseSettings } from "../core/session.ts";
-import { KDF_ITERATIONS, Vault, VaultCorruptError, WrongPassphraseError } from "../core/vault.ts";
+import { restoreBackup, writeBackup } from "../core/backupfile.ts";
+import {
+  KDF_ITERATIONS,
+  type KeySecret,
+  Vault,
+  VaultCorruptError,
+  WrongPassphraseError,
+} from "../core/vault.ts";
 import { HttpError } from "./routes/context.ts";
 import type { ClaudeCodeEnv } from "./claudecode.ts";
 import type { BuildInfo } from "./build.ts";
@@ -28,6 +35,19 @@ export interface AppConfig {
    * `/api/status` can say "Locks after N min idle" without opening the vault. Not sensitive.
    */
   idleLockMinutes?: number;
+  /**
+   * The folder the last single-file backup went to, as the user typed it: the default the next
+   * time (ADR 29). A path, not case content, like `lastCase`.
+   */
+  lastBackupDir?: string;
+}
+
+/** Vault file recording the open case's last single-file backup (ADR 29). */
+export const BACKUPS_FILE = "backups";
+
+export interface BackupRecord {
+  /** When the last backup of this case was made (or, in a restored case, the backup's date). */
+  lastAt?: string | null;
 }
 
 export interface LlmCheck {
@@ -151,9 +171,14 @@ export class AppState {
     return "~/Documents/casefile/case-1";
   }
 
-  #expand(dir: string): string {
+  /** `~/…` as the user types it, made absolute. */
+  #home(dir: string): string {
     const home = this.opts.home ?? Deno.env.get("HOME") ?? ".";
-    const path = dir.startsWith("~/") ? join(home, dir.slice(2)) : dir;
+    return resolve(dir.startsWith("~/") ? join(home, dir.slice(2)) : dir);
+  }
+
+  #expand(dir: string): string {
+    const path = this.#home(dir);
     const root = this.opts.caseRoot;
     if (root) {
       const rel = relative(resolve(root), resolve(path));
@@ -430,6 +455,113 @@ export class AppState {
     await v.removeRecoveryKey();
     await s.updateSettings({ recoveryKey: false });
     s.log("user", "recovery_key_removed", {});
+  }
+
+  // ── single-file backups (ADR 29) ──────────────────────────────────────────
+
+  /** When the open case was last backed up, and the folder to suggest for the next backup. */
+  async backupStatus(): Promise<{ lastAt: string | null; folder: string | null }> {
+    const s = this.#open();
+    const rec = await s.readVaultJson<BackupRecord>(BACKUPS_FILE, {});
+    return { lastAt: rec.lastAt ?? null, folder: this.config.lastBackupDir ?? null };
+  }
+
+  /**
+   * Back the open case up into `folder` (asked each time; remembered as the next default) as one
+   * encrypted file. The folder must exist and be outside the case folder, where Claude Code could
+   * read the file (and the keyfile's wraps in it).
+   */
+  async backupNow(
+    folder: string,
+  ): Promise<{ file: string; folder: string; createdAt: string; bytes: number }> {
+    const s = this.#open();
+    const typed = folder.trim();
+    if (!typed) throw new HttpError(400, "Type the folder to put the backup in.");
+    const dir = this.#home(typed);
+    const st = await Deno.stat(dir).catch(() => null);
+    if (!st?.isDirectory) {
+      throw new HttpError(
+        400,
+        "casefile can't find that folder. If it is on a USB drive, plug the drive in, or choose another folder.",
+      );
+    }
+    const [realDir, realCase] = await Promise.all([
+      Deno.realPath(dir),
+      Deno.realPath(s.paths.root),
+    ]);
+    const rel = relative(realCase, realDir);
+    if (rel === "" || !(rel === ".." || rel.startsWith(`..${SEPARATOR}`) || isAbsolute(rel))) {
+      throw new HttpError(
+        400,
+        "Choose a folder outside the case folder: Claude Code can read everything inside it.",
+      );
+    }
+    let r;
+    try {
+      r = await writeBackup(s, realDir, {
+        tmpDir: join(this.opts.configDir, "tmp"),
+        app: this.build.version,
+      });
+    } catch (e) {
+      if (e instanceof HttpError) throw e;
+      throw new HttpError(500, `casefile couldn't make the backup: ${(e as Error).message}`);
+    }
+    await s.writeVaultJson(BACKUPS_FILE, { lastAt: r.createdAt } satisfies BackupRecord);
+    s.log("user", "case_backed_up", { files: r.files, bytes: r.bytes });
+    this.config.lastBackupDir = typed;
+    try {
+      await this.#saveConfig();
+    } catch {
+      // only the default for next time
+    }
+    return { file: basename(r.path), folder: realDir, createdAt: r.createdAt, bytes: r.bytes };
+  }
+
+  /**
+   * Restore a single-file backup into `dir`, a new or empty folder, and open it as a case of its
+   * own (ADR 29). The passphrase or recovery key goes through the same limit as unlocking,
+   * counted per backup file. With a recovery key, `newPassphrase` becomes the restored case's
+   * passphrase. The case the backup was made from is not touched.
+   */
+  async restoreCase(file: string, dir: string, secret: KeySecret, newPassphrase?: string) {
+    const path = this.#home(file);
+    const target = this.#expand(dir);
+    if ("recoveryKey" in secret && (newPassphrase ?? "").length < 12) {
+      throw new HttpError(400, "Use a new passphrase of at least 12 characters");
+    }
+    const st = await Deno.stat(path).catch(() => null);
+    if (!st?.isFile) throw new HttpError(400, "casefile can't find that backup file.");
+    const r = await this.#withPassphrase(
+      path,
+      (resolved) =>
+        restoreBackup(resolved, target, secret, {
+          newPassphrase,
+          kdfIterations: this.#iterations,
+        }),
+    );
+    let s: CaseSession;
+    try {
+      s = await CaseSession.open(
+        r.root,
+        "passphrase" in secret ? secret.passphrase : newPassphrase!,
+      );
+    } catch (e) {
+      throw new HttpError(
+        500,
+        `The backup was restored to ${r.root}, but casefile couldn't open it: ${
+          (e as Error).message
+        }`,
+      );
+    }
+    // The restored case was backed up when the backup was made.
+    await s.writeVaultJson(BACKUPS_FILE, { lastAt: r.header.createdAt } satisfies BackupRecord);
+    await this.#adopt(s);
+    s.log("user", "case_restored", {
+      backup_made: r.header.createdAt,
+      backup_schema: r.header.publicDbSchema,
+      recovery_key: "recoveryKey" in secret,
+    });
+    return { caseDir: r.root, backupMade: r.header.createdAt };
   }
 
   #open(): CaseSession {

@@ -5,6 +5,7 @@ import {
   WrongRecoveryKeyError,
 } from "../../core/vault.ts";
 import { claudeCodeStatus } from "../claudecode.ts";
+import { type BackupRecord, BACKUPS_FILE } from "../state.ts";
 import {
   type ErrorMapper,
   HttpError,
@@ -57,7 +58,7 @@ export function caseRoutes({ state, s }: RouteContext): Route[] {
         update: state.updateStatus,
       };
     }, true),
-    // Signed in only, like every route but three (ADR 13). Locked, the user quits and reopens
+    // Signed in only, like every route but four (ADR 13, ADR 29). Locked, the user quits and reopens
     // casefile instead, which applies the update just the same (ADR 24).
     route("POST", "/api/update/restart", () => {
       if (!state.updateStatus.ready) throw new HttpError(409, "There is no update waiting.");
@@ -144,6 +145,7 @@ export function caseRoutes({ state, s }: RouteContext): Route[] {
       const docs = await sess.listDocInfo();
       const count = (st: string) => docs.filter((d) => d.state === st).length;
       const rec = await sess.readVaultJson<StartRecord>(START_FILE, {});
+      const backup = await sess.readVaultJson<BackupRecord>(BACKUPS_FILE, {});
       const conf = st.confirmations ?? {};
       const steps = [
         {
@@ -174,8 +176,8 @@ export function caseRoutes({ state, s }: RouteContext): Route[] {
           command: cc.command,
           canOpenTerminal: cc.canOpenTerminal,
         },
-        // Encrypted backup is not built yet (REBUILD-PLAN section 3).
-        { id: "backup", done: false, available: false },
+        // The last single-file backup, from the vault (ADR 29). The screen says how long ago.
+        { id: "backup", done: Boolean(backup.lastAt), lastAt: backup.lastAt ?? null },
       ];
       return { done: steps.filter((x) => x.done).length, total: steps.length, steps };
     }),
